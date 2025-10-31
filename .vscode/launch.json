@@ -5,7 +5,7 @@
             "name": "Debug Vulkan Application",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/your_app",
+            "program": "${workspaceFolder}/out/build/Clang MS",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

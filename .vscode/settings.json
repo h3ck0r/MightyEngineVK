@@ -1,5 +1,19 @@
 {
     "cmake.configureOnOpen": true,
     "cmake.buildDirectory": "${workspaceFolder}/build",
-    "cmake.generator": "Ninja"
+    "cmake.generator": "Ninja",
+    "C_Cpp.clang_format_style": "file",
+    "editor.defaultFormatter": "ms-vscode.cpptools",
+
+    "editor.formatOnSave": true,
+
+    "files.associations": {
+        "*.h": "cpp",
+        "*.hpp": "cpp"
+    },
+
+    // Optional: enable cpplint or clang-tidy integration
+    "C_Cpp.codeAnalysis.clangTidy.enabled": true,
+    "C_Cpp.codeAnalysis.clangTidy.path": "clang-tidy",
+    "C_Cpp.codeAnalysis.clangTidy.config": "file"
 }
