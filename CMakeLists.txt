@@ -6,23 +6,23 @@ find_package(Vulkan REQUIRED)
 
 add_subdirectory(external/glfw)
 add_subdirectory(external/glm)
-add_subdirectory(external/vk-bootstrap)
 
+file(GLOB CORE_SOURCES "core/*.cc")
 
-add_executable(VulkanEngineExecutable main.cpp)
+add_executable(VulkanEngineExecutable main.cpp 
+    ${CORE_SOURCES})
 
 target_include_directories(VulkanEngineExecutable PRIVATE
     ${Vulkan_INCLUDE_DIRS}
-    ${CMAKE_SOURCE_DIR}/external/VulkanMemoryAllocator/include
+    core
 )
 
 target_link_libraries(VulkanEngineExecutable PUBLIC 
 Vulkan::Vulkan 
 glfw
-vk-bootstrap
 glm)
 
 set_target_properties(VulkanEngineExecutable PROPERTIES
-    CXX_STANDARD 20
+    CXX_STANDARD 23
     CXX_STANDARD_REQUIRED ON
 )

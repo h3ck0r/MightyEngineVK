@@ -1,12 +1,68 @@
 BasedOnStyle: Google
 IndentWidth: 4
+TabWidth: 4
+UseTab: Never
 ColumnLimit: 80
+
+# --- Braces and Blocks ---
+BreakBeforeBraces: Attach               # Attach braces to function/control statement
+AllowShortBlocksOnASingleLine: true    # Allows `{ }` for empty or short blocks
+AllowShortFunctionsOnASingleLine: Inline
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
-SpacesBeforeTrailingComments: 2
-DerivePointerAlignment: false
-PointerAlignment: Left
+AllowShortCaseLabelsOnASingleLine: false
+
+# --- Spaces ---
+SpaceBeforeParens: ControlStatements   # 'if (' instead of 'if('
 SpaceAfterCStyleCast: true
-IncludeBlocks: Preserve
-SortIncludes: true
+SpacesBeforeTrailingComments: 2
+SpaceInEmptyParentheses: false
+SpacesInParentheses: false
+SpacesInAngles: false
+SpacesInSquareBrackets: false
+SpaceBeforeAssignmentOperators: true
+
+# --- Pointers & References ---
+DerivePointerAlignment: false
+PointerAlignment: Left                  # 'T* ptr' not 'T *ptr'
+ReferenceAlignment: Left                # 'T& ref' not 'T &ref'
+
+# --- Includes ---
+IncludeBlocks: Regroup
+SortIncludes: true                      # Sort alphabetically within blocks
+
+# --- Comments ---
 ReflowComments: true
+CommentPragmas: '^ IWYU pragma:'
+IndentWrappedFunctionNames: true
+
+# --- Alignment and Wrapping ---
+AlignAfterOpenBracket: DontAlign
+AlignOperands: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignConsecutiveMacros: true
+AlignEscapedNewlines: Right
+AlwaysBreakTemplateDeclarations: Yes
+BinPackParameters: false
+BinPackArguments: false
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeTernaryOperators: true
+
+# --- Function and Constructor Formatting ---
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowAllArgumentsOnNextLine: false
+PenaltyReturnTypeOnItsOwnLine: 300
+PenaltyBreakBeforeFirstCallParameter: 100
+KeepEmptyLinesAtTheStartOfBlocks: false
+
+# --- Namespace handling ---
+FixNamespaceComments: true
+IndentCaseLabels: true
+IndentGotoLabels: false
+
+# --- Miscellaneous ---
+SortUsingDeclarations: true
+Cpp11BracedListStyle: true
+BreakConstructorInitializers: BeforeComma
+SpacesInConditionalStatement: false

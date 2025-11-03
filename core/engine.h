@@ -1,25 +1,36 @@
 #ifndef CORE_ENGINE_
 #define CORE_ENGINE_
 
-#include "VkBootstrap.h"
-#include "window.h"
+#include <GLFW/glfw3.h>
+
+#include <vulkan/vulkan_raii.hpp>
 
 namespace core {
 
 class Engine {
    public:
+    Engine();
     void run();
 
    private:
-    void init();
     void loop();
     void cleanup();
-    void initVK();
-    void createInstance();
+    bool initWindow();
+    bool initVK();
+    bool createVKInstance();
+    bool setupDebugMessenger();
+    bool pickPhysicalDevice();
+    bool createLogicalDevice();
+    uint32_t findQueueFamilies();
 
-    Window window_;
-    vkb::Device vkb_device_;
-    vkb::Instance vkb_inst_;
+    vk::raii::Device logicalDevice_;
+    vk::raii::Queue deviceQueue_;
+    vk::raii::PhysicalDevice physicalDevice_;
+    vk::raii::DebugUtilsMessengerEXT debugMessenger_;
+    vk::raii::Instance instance_;
+
+    vk::raii::Context context_;
+    GLFWwindow* window_;
 };
 
 }  // namespace core
