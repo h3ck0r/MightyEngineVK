@@ -6,7 +6,11 @@
 import vulkan_hpp;
 #endif
 
+#define VK_USE_PLATFORM_WIN32_KHR
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
 
 #include <algorithm>
 #include <iostream>
@@ -37,9 +41,8 @@ static VKAPI_ATTR vk::Bool32 VKAPI_CALL
         vk::DebugUtilsMessageTypeFlagsEXT type,
         const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData,
         void*) {
-    LOG(ERROR) << "[" << to_string(type) << "]"
-               << " " << pCallbackData->pMessage << "\n";
-
+    LOG(ERR) << "[" << to_string(type) << "]"
+             << " " << pCallbackData->pMessage << "\n";
     return vk::False;
 }
 
@@ -72,26 +75,36 @@ bool Engine::initVK() {
     LOG(INFO) << "Enable Validation Layers: " << kEnableValidationLayers << "\n"
               << "More debugging:" << kMoreLogs << "\n";
     if (!createVKInstance()) {
-        LOG(ERROR) << "Vulkan Instance is not initialized";
+        LOG(ERR) << "Vulkan Instance is not initialized";
         return false;
     }
     LOG(INFO) << "VK Instance created.\n";
     if (!setupDebugMessenger()) {
-        LOG(ERROR) << "Debug Messenger is not initialized";
+        LOG(ERR) << "Debug Messenger is not initialized";
         return false;
     }
+    createSurface();
     LOG(INFO) << "Debug Messenger initialized.\n";
     if (!pickPhysicalDevice()) {
-        LOG(ERROR) << "Physical device is not picked";
+        LOG(ERR) << "Physical device is not picked";
         return false;
     }
     LOG(INFO) << "Physical device picked.\n";
     if (!createLogicalDevice()) {
-        LOG(ERROR) << "Logical Device is not created";
+        LOG(ERR) << "Logical Device is not created";
         return false;
     }
     LOG(INFO) << "Logical Device created.\n";
     LOG(INFO) << "Finished Vulkan initialization.\n";
+    return true;
+}
+
+bool Engine::createSurface() {
+    VkSurfaceKHR surface;
+    if (glfwCreateWindowSurface(*instance_, window_, nullptr, &surface) != 0) {
+        return false;
+    }
+    surface_ = vk::raii::SurfaceKHR(instance_, surface);
     return true;
 }
 
@@ -168,7 +181,7 @@ bool Engine::pickPhysicalDevice() {
         return false;
     }
     if (physicalDevices.empty()) {
-        LOG(ERROR) << "No Physical devices" << "\n";
+        LOG(ERR) << "No Physical devices" << "\n";
         return false;
     }
     if (kMoreLogs) {

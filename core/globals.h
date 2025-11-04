@@ -32,14 +32,14 @@ inline constexpr bool kEnableValidationLayers = false;
 inline constexpr bool kEnableValidationLayers = true;
 #endif
 
-enum LogType { INFO, ERROR };
+enum LogType { INFO, ERR };
 #define LOG(type) LogStream(type, __FILE__, __LINE__)
 
 inline const char* LogTypeToString(LogType type) {
     switch (type) {
         case INFO:
             return "INFO";
-        case ERROR:
+        case ERR:
             return "ERROR";
         default:
             return "UNKNOWN";

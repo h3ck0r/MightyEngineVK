@@ -17,6 +17,7 @@ class Engine {
     void cleanup();
     bool initWindow();
     bool initVK();
+    bool createSurface();
     bool createVKInstance();
     bool setupDebugMessenger();
     bool pickPhysicalDevice();
@@ -28,6 +29,7 @@ class Engine {
     vk::raii::PhysicalDevice physicalDevice_ = nullptr;
     vk::raii::DebugUtilsMessengerEXT debugMessenger_ = nullptr;
     vk::raii::Instance instance_ = nullptr;
+    vk::raii::SurfaceKHR surface_ = nullptr;
 
     vk::raii::Context context_;
     GLFWwindow* window_;
