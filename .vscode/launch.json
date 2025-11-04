@@ -3,16 +3,12 @@
     "configurations": [
         {
             "name": "Debug Vulkan Application",
-            "type": "cppdbg",
+            "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/out/build/Clang MS",
+            "program": "${command:cmake.launchTargetPath}",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": [
-                {"name": "VK_LAYER_PATH", "value": "path/to/vulkan/sdk/layers"}
-            ],
-            "externalConsole": false
         }
     ]
 }

@@ -9,8 +9,8 @@ namespace core {
 
 class Engine {
    public:
-    Engine();
     void run();
+    Engine();
 
    private:
     void loop();
@@ -23,11 +23,11 @@ class Engine {
     bool createLogicalDevice();
     uint32_t findQueueFamilies();
 
-    vk::raii::Device logicalDevice_;
-    vk::raii::Queue deviceQueue_;
-    vk::raii::PhysicalDevice physicalDevice_;
-    vk::raii::DebugUtilsMessengerEXT debugMessenger_;
-    vk::raii::Instance instance_;
+    vk::raii::Device logicalDevice_ = nullptr;
+    vk::raii::Queue deviceQueue_ = nullptr;
+    vk::raii::PhysicalDevice physicalDevice_ = nullptr;
+    vk::raii::DebugUtilsMessengerEXT debugMessenger_ = nullptr;
+    vk::raii::Instance instance_ = nullptr;
 
     vk::raii::Context context_;
     GLFWwindow* window_;

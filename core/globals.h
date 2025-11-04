@@ -18,12 +18,13 @@ const std::vector<const char*> kDeviceExtensions = {
     vk::KHRSwapchainExtensionName,
     vk::KHRSpirv14ExtensionName,
     vk::KHRSynchronization2ExtensionName,
-    vk::KHRCreateRenderpass2ExtensionName};
+    vk::KHRCreateRenderpass2ExtensionName,
+};
 
 #ifdef MORE_LOGS
-inline constexpr bool kMoreDebugging = true;
+inline constexpr bool kMoreLogs = true;
 #else
-inline constexpr bool kMoreDebugging = false;
+inline constexpr bool kMoreLogs = false;
 #endif
 #ifdef NDEBUG
 inline constexpr bool kEnableValidationLayers = false;

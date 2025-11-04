@@ -17,6 +17,21 @@ import vulkan_hpp;
 
 namespace core {
 
+inline std::vector<const char*> getInstanceExtensions() {
+    uint32_t glfwExtensionCount = 0;
+    const char** glfwExtensions =
+        glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+    std::vector<const char*> extensions(glfwExtensions,
+        glfwExtensions + glfwExtensionCount);
+
+    if (kEnableValidationLayers) {
+        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    }
+
+    return extensions;
+}
+
 static VKAPI_ATTR vk::Bool32 VKAPI_CALL
     debugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
         vk::DebugUtilsMessageTypeFlagsEXT type,
@@ -55,21 +70,25 @@ void Engine::loop() {
 bool Engine::initVK() {
     LOG(INFO) << "Initilazing " << kAppName << "\n";
     LOG(INFO) << "Enable Validation Layers: " << kEnableValidationLayers << "\n"
-              << "More debugging:" << kMoreDebugging << "\n";
+              << "More debugging:" << kMoreLogs << "\n";
     if (!createVKInstance()) {
         LOG(ERROR) << "Vulkan Instance is not initialized";
+        return false;
     }
     LOG(INFO) << "VK Instance created.\n";
     if (!setupDebugMessenger()) {
         LOG(ERROR) << "Debug Messenger is not initialized";
+        return false;
     }
     LOG(INFO) << "Debug Messenger initialized.\n";
     if (!pickPhysicalDevice()) {
         LOG(ERROR) << "Physical device is not picked";
+        return false;
     }
     LOG(INFO) << "Physical device picked.\n";
     if (!createLogicalDevice()) {
         LOG(ERROR) << "Logical Device is not created";
+        return false;
     }
     LOG(INFO) << "Logical Device created.\n";
     LOG(INFO) << "Finished Vulkan initialization.\n";
@@ -116,7 +135,6 @@ bool Engine::setupDebugMessenger() {
     if (!kEnableValidationLayers) {
         return false;
     }
-    LOG(INFO) << "1";
 
     vk::DebugUtilsMessageSeverityFlagsEXT severityFlags(
         vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose
@@ -130,19 +148,15 @@ bool Engine::setupDebugMessenger() {
         .messageSeverity = severityFlags,
         .messageType = messageTypeFlags,
         .pfnUserCallback = &debugCallback};
-    LOG(INFO) << "2";
 
     // TODO: add result checks
     auto [result, debugMessenger] = instance_.createDebugUtilsMessengerEXT(
         debugUtilsMessengerCreateInfoEXT);
 
-    LOG(INFO) << "2.5";
     debugMessenger_ = std::move(debugMessenger);
-    LOG(INFO) << "3";
     if (result != vk::Result::eSuccess) {
         return false;
     }
-    LOG(INFO) << "4";
     return true;
 }
 
@@ -157,7 +171,7 @@ bool Engine::pickPhysicalDevice() {
         LOG(ERROR) << "No Physical devices" << "\n";
         return false;
     }
-    if (kMoreDebugging) {
+    if (kMoreLogs) {
         LOG(INFO) << "Available Devices:\n";
         for (const auto& device : physicalDevices) {
             LOG(INFO) << device.getProperties().deviceName << "\n";
@@ -185,86 +199,30 @@ uint32_t Engine::findQueueFamilies() {
 }
 
 bool Engine::createVKInstance() {
-    constexpr vk::ApplicationInfo appInfo{.pApplicationName = "Hello Triangle",
+    constexpr vk::ApplicationInfo appInfo{.pApplicationName = kAppName.data(),
         .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
-        .pEngineName = "No Engine",
+        .pEngineName = kAppName.data(),
         .engineVersion = VK_MAKE_VERSION(1, 0, 0),
         .apiVersion = vk::ApiVersion14};
-    // VALIDATION LAYERS
     std::vector<char const*> requiredLayers;
     if (kEnableValidationLayers) {
         requiredLayers.assign(kValidationLayers.begin(),
             kValidationLayers.end());
-        // TODO: add result checks
         auto [result, availableLayers] =
             context_.enumerateInstanceLayerProperties();
         if (result != vk::Result::eSuccess) {
             return false;
         }
-        if (kMoreDebugging) {
-            LOG(INFO) << "Available layers:\n";
-            for (const auto& layer : availableLayers) {
-                LOG(INFO) << layer.layerName << "\n";
-            }
-        }
-        for (uint32_t i = 0; i < kValidationLayers.size(); ++i) {
-            bool found = false;
-            for (const auto& layerProperty : availableLayers) {
-                if (std::string_view(layerProperty.layerName)
-                    == requiredLayers[i]) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                LOG(ERROR) << "Required Validation Layer not supported: "
-                           << std::string(requiredLayers[i]);
-                return false;
-            }
-        }
     }
-    // END OF VALIDATION LAYERS
-    // DEVICE EXTENSIONS
-    uint32_t glfwExtensionCount = 0;
-    auto glfwExtensions =
-        glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-    // TODO: add result check
-    auto [result, available_extensions] =
-        context_.enumerateInstanceExtensionProperties();
-    if (result != vk::Result::eSuccess) {
-        return false;
-    }
-    if (kMoreDebugging) {
-        LOG(INFO) << "Available extensions:\n";
-        for (const auto& extension : available_extensions) {
-            LOG(INFO) << extension.extensionName << "\n";
-        }
-    }
-    for (uint32_t i = 0; i < glfwExtensionCount; ++i) {
-        bool found = false;
-        for (const auto& extensionProperty : available_extensions) {
-            if (std::string_view(extensionProperty.extensionName)
-                == glfwExtensions[i]) {
-                found = true;
-                break;
-            }
-        }
 
-        if (!found) {
-            LOG(ERROR) << "Required GLFW extension not supported: "
-                       << std::string(glfwExtensions[i]);
-            return false;
-        }
-    }
-    // END OF DEVICE EXTENSIONS
-    // CREATE INSTANCE
+    auto extensions = getInstanceExtensions();
+
     vk::InstanceCreateInfo createInfo{.pApplicationInfo = &appInfo,
         .enabledLayerCount = static_cast<uint32_t>(requiredLayers.size()),
         .ppEnabledLayerNames = requiredLayers.data(),
-        .enabledExtensionCount = static_cast<uint32_t>(glfwExtensionCount),
-        .ppEnabledExtensionNames = glfwExtensions};
+        .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
+        .ppEnabledExtensionNames = extensions.data()};
 
-    // TODO: add result checks
     auto [instance_result, instance] = context_.createInstance(createInfo);
     if (instance_result != vk::Result::eSuccess) {
         return false;

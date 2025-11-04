@@ -22,6 +22,24 @@
                     "message": 3
                 }
             }
+        },
+         {
+            "label": "Build VulkanEngine Debug",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/out/build/Clang MS",
+                "--config",
+                "Debug"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$msCompile"
+            ]
         }
     ]
 }
