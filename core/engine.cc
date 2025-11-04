@@ -46,15 +46,15 @@ static VKAPI_ATTR vk::Bool32 VKAPI_CALL
     return vk::False;
 }
 
-Engine::Engine() {}
+MightyEngine::MightyEngine() {}
 
-void Engine::run() {
+void MightyEngine::run() {
     initWindow();
     initVK();
     loop();
     cleanup();
 }
-bool Engine::initWindow() {
+bool MightyEngine::initWindow() {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
@@ -65,12 +65,12 @@ bool Engine::initWindow() {
         nullptr);
     return true;
 }
-void Engine::loop() {
+void MightyEngine::loop() {
     while (!glfwWindowShouldClose(window_)) {
         glfwPollEvents();
     }
 }
-bool Engine::initVK() {
+bool MightyEngine::initVK() {
     LOG(INFO) << "Initilazing " << kAppName << "\n";
     LOG(INFO) << "Enable Validation Layers: " << kEnableValidationLayers << "\n"
               << "More debugging:" << kMoreLogs << "\n";
@@ -99,7 +99,7 @@ bool Engine::initVK() {
     return true;
 }
 
-bool Engine::createSurface() {
+bool MightyEngine::createSurface() {
     VkSurfaceKHR surface;
     if (glfwCreateWindowSurface(*instance_, window_, nullptr, &surface) != 0) {
         return false;
@@ -108,7 +108,7 @@ bool Engine::createSurface() {
     return true;
 }
 
-bool Engine::createLogicalDevice() {
+bool MightyEngine::createLogicalDevice() {
     std::vector<vk::QueueFamilyProperties> queueFamilyProperties =
         physicalDevice_.getQueueFamilyProperties();
     auto graphicsIndex = findQueueFamilies();
@@ -144,7 +144,7 @@ bool Engine::createLogicalDevice() {
     return true;
 }
 
-bool Engine::setupDebugMessenger() {
+bool MightyEngine::setupDebugMessenger() {
     if (!kEnableValidationLayers) {
         return false;
     }
@@ -173,7 +173,7 @@ bool Engine::setupDebugMessenger() {
     return true;
 }
 
-bool Engine::pickPhysicalDevice() {
+bool MightyEngine::pickPhysicalDevice() {
     vk::raii::PhysicalDevice physicalDevice = nullptr;
     // TODO: add result checks
     auto [result, physicalDevices] = instance_.enumeratePhysicalDevices();
@@ -194,7 +194,7 @@ bool Engine::pickPhysicalDevice() {
     return true;
 }
 
-uint32_t Engine::findQueueFamilies() {
+uint32_t MightyEngine::findQueueFamilies() {
     std::vector<vk::QueueFamilyProperties> queueFamilyProperties =
         physicalDevice_.getQueueFamilyProperties();
 
@@ -211,7 +211,7 @@ uint32_t Engine::findQueueFamilies() {
     return graphicsQueueFamilyIndex;
 }
 
-bool Engine::createVKInstance() {
+bool MightyEngine::createVKInstance() {
     constexpr vk::ApplicationInfo appInfo{.pApplicationName = kAppName.data(),
         .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
         .pEngineName = kAppName.data(),
@@ -245,7 +245,7 @@ bool Engine::createVKInstance() {
     return true;
 }
 
-void Engine::cleanup() {
+void MightyEngine::cleanup() {
     glfwDestroyWindow(window_);
     glfwTerminate();
 }

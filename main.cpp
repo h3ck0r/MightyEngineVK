@@ -4,7 +4,7 @@
 #include "core/engine.h"
 
 int main() {
-    core::Engine engine;
+    core::MightyEngine engine;
 
     engine.run();
 

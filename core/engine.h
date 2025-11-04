@@ -7,10 +7,10 @@
 
 namespace core {
 
-class Engine {
+class MightyEngine {
    public:
     void run();
-    Engine();
+    MightyEngine();
 
    private:
     void loop();
