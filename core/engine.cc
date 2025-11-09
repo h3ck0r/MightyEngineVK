@@ -14,12 +14,52 @@ import vulkan_hpp;
 
 #include <algorithm>
 #include <iostream>
+#include <limits>
 #include <ranges>
 
 #include "engine.h"
 #include "globals.h"
 
 namespace core {
+
+inline vk::Extent2D chooseSwapExtent(GLFWwindow* window,
+    const vk::SurfaceCapabilitiesKHR& capabilities) {
+    if (capabilities.currentExtent.width
+        != std::numeric_limits<uint32_t>::infinity()) {
+        return capabilities.currentExtent;
+    }
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+
+    return {std::clamp<uint32_t>(width,
+                capabilities.minImageExtent.width,
+                capabilities.maxImageExtent.width),
+        std::clamp<uint32_t>(height,
+            capabilities.minImageExtent.height,
+            capabilities.maxImageExtent.height)};
+}
+
+inline vk::PresentModeKHR chooseSwapPresentMode(
+    const std::vector<vk::PresentModeKHR>& availablePresentModes) {
+    for (const auto& availablePresentMode : availablePresentModes) {
+        if (availablePresentMode == vk::PresentModeKHR::eMailbox) {
+            return availablePresentMode;
+        }
+    }
+    return vk::PresentModeKHR::eFifo;
+}
+
+inline vk::SurfaceFormatKHR chooseSwapSurfaceFormat(
+    const std::vector<vk::SurfaceFormatKHR>& availableFormats) {
+    for (const auto& availableFormat : availableFormats) {
+        if (availableFormat.format == vk::Format::eB8G8R8A8Srgb
+            && availableFormat.colorSpace
+                   == vk::ColorSpaceKHR::eSrgbNonlinear) {
+            return availableFormat;
+        }
+    }
+    return availableFormats[0];
+}
 
 inline std::vector<const char*> getInstanceExtensions() {
     uint32_t glfwExtensionCount = 0;
@@ -103,7 +143,34 @@ bool MightyEngine::initVK() {
     }
     LOG(INFO) << "Logical Device created.\n";
 
+    if (!createSwapChain()) {
+        LOG(ERR) << "SwapChain is not created.\n";
+        return false;
+    }
+    LOG(INFO) << "SwapChain created.\n";
+
+    if (!createImageViews()) {
+        LOG(ERR) << "ImageViews are not created.\n";
+        return false;
+    }
+    LOG(INFO) << "ImageViews created.\n";
+
     LOG(INFO) << "Finished Vulkan initialization.\n";
+    return true;
+}
+
+bool MightyEngine::createImageViews() {
+    swapChainImages_.clear();
+
+    vk::ImageViewCreateInfo imageViewCreateInfo{.viewType =
+                                                    vk::ImageViewType::e2D,
+        .format = swapChainSurfaceFormat_.format,
+        .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}};
+    for (auto image : swapChainImages_) {
+        imageViewCreateInfo.image = image;
+        swapChainImageViews_.emplace_back(
+            logicalDevice_.createImageView(imageViewCreateInfo).value);
+    }
     return true;
 }
 
@@ -117,16 +184,72 @@ bool MightyEngine::createSurface() {
     return true;
 }
 
+bool MightyEngine::createSwapChain() {
+    auto surfaceCapabilities =
+        physicalDevice_.getSurfaceCapabilitiesKHR(surface_).value;
+    swapChainSurfaceFormat_ = chooseSwapSurfaceFormat(
+        physicalDevice_.getSurfaceFormatsKHR(surface_).value);
+    swapChainExtent_ = chooseSwapExtent(window_, surfaceCapabilities);
+
+    auto minImageCount = surfaceCapabilities.minImageCount < 3
+                             ? 3
+                             : surfaceCapabilities.minImageCount;
+    minImageCount = (surfaceCapabilities.maxImageCount > 0
+                        && minImageCount > surfaceCapabilities.maxImageCount)
+                        ? surfaceCapabilities.maxImageCount
+                        : minImageCount;
+
+    uint32_t imageCount = surfaceCapabilities.minImageCount + 1;
+    if (surfaceCapabilities.maxImageCount > 0
+        && imageCount > surfaceCapabilities.maxImageCount) {
+        imageCount = surfaceCapabilities.maxImageCount;
+    }
+
+    vk::SwapchainCreateInfoKHR swapChainCreateInfo{
+        .flags = vk::SwapchainCreateFlagsKHR(),
+        .surface = surface_,
+        .minImageCount = minImageCount,
+        .imageFormat = swapChainSurfaceFormat_.format,
+        .imageColorSpace = swapChainSurfaceFormat_.colorSpace,
+        .imageExtent = swapChainExtent_,
+        .imageArrayLayers = 1,
+        .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
+        .imageSharingMode = vk::SharingMode::eExclusive,
+        .preTransform = surfaceCapabilities.currentTransform,
+        .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
+        .presentMode = chooseSwapPresentMode(
+            physicalDevice_.getSurfacePresentModesKHR(surface_).value),
+        .clipped = true,
+        .oldSwapchain = nullptr};
+
+    uint32_t queueFamilyIndices[] = {graphicsIndex_, presentIndex_};
+
+    if (graphicsIndex_ != presentIndex_) {
+        swapChainCreateInfo.imageSharingMode = vk::SharingMode::eConcurrent;
+        swapChainCreateInfo.queueFamilyIndexCount = 2;
+        swapChainCreateInfo.pQueueFamilyIndices = queueFamilyIndices;
+
+    } else {
+        swapChainCreateInfo.imageSharingMode = vk::SharingMode::eExclusive;
+        swapChainCreateInfo.queueFamilyIndexCount = 0;      // Optional
+        swapChainCreateInfo.pQueueFamilyIndices = nullptr;  // Optional
+    }
+    swapChain_ = logicalDevice_.createSwapchainKHR(swapChainCreateInfo).value;
+    swapChainImages_ = swapChain_.getImages().value;
+
+    return true;
+}
+
 bool MightyEngine::createLogicalDevice() {
     std::vector<vk::QueueFamilyProperties> queueFamilyProperties =
         physicalDevice_.getQueueFamilyProperties();
-    auto graphicsIndex = findQueueFamilies();
+    graphicsIndex_ = findQueueFamilies();
 
-    auto presentIndex =
-        physicalDevice_.getSurfaceSupportKHR(graphicsIndex, *surface_).value
-            ? graphicsIndex
+    presentIndex_ =
+        physicalDevice_.getSurfaceSupportKHR(graphicsIndex_, *surface_).value
+            ? graphicsIndex_
             : static_cast<uint32_t>(queueFamilyProperties.size());
-    if (presentIndex == queueFamilyProperties.size()) {
+    if (presentIndex_ == queueFamilyProperties.size()) {
         for (size_t i = 0; i < queueFamilyProperties.size(); i++) {
             auto hasSupport =
                 physicalDevice_.getSurfaceSupportKHR(static_cast<uint32_t>(i),
@@ -134,31 +257,31 @@ bool MightyEngine::createLogicalDevice() {
             if ((queueFamilyProperties[i].queueFlags
                     & vk::QueueFlagBits::eGraphics)
                 && hasSupport.value) {
-                graphicsIndex = static_cast<uint32_t>(i);
-                presentIndex = graphicsIndex;
+                graphicsIndex_ = static_cast<uint32_t>(i);
+                presentIndex_ = graphicsIndex_;
                 break;
             }
         }
-        if (presentIndex == queueFamilyProperties.size()) {
+        if (presentIndex_ == queueFamilyProperties.size()) {
             for (size_t i = 0; i < queueFamilyProperties.size(); i++) {
                 if (physicalDevice_
                         .getSurfaceSupportKHR(static_cast<uint32_t>(i),
                             *surface_)
                         .value) {
-                    presentIndex = static_cast<uint32_t>(i);
+                    presentIndex_ = static_cast<uint32_t>(i);
                     break;
                 }
             }
         }
     }
-    if ((graphicsIndex == queueFamilyProperties.size())
-        || (presentIndex == queueFamilyProperties.size())) {
+    if ((graphicsIndex_ == queueFamilyProperties.size())
+        || (presentIndex_ == queueFamilyProperties.size())) {
         return false;
     }
 
     float queuePriority = 0.0f;
     vk::DeviceQueueCreateInfo deviceQueueCreateInfo{.queueFamilyIndex =
-                                                        graphicsIndex,
+                                                        graphicsIndex_,
         .queueCount = 1,
         .pQueuePriorities = &queuePriority};
 
@@ -182,8 +305,8 @@ bool MightyEngine::createLogicalDevice() {
         return false;
     }
     logicalDevice_ = std::move(logicalDevice);
-    deviceQueue_ = logicalDevice_.getQueue(graphicsIndex, 0);
-    presentQueue_ = logicalDevice_.getQueue(presentIndex, 0);
+    deviceQueue_ = logicalDevice_.getQueue(graphicsIndex_, 0);
+    presentQueue_ = logicalDevice_.getQueue(presentIndex_, 0);
 
     return true;
 }

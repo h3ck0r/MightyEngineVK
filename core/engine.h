@@ -22,18 +22,28 @@ class MightyEngine {
     bool setupDebugMessenger();
     bool pickPhysicalDevice();
     bool createLogicalDevice();
-    bool createSuface();
+    bool createSwapChain();
+    bool createImageViews();
     uint32_t findQueueFamilies();
 
     vk::raii::Device logicalDevice_ = nullptr;
-    vk::raii::Queue deviceQueue_ = nullptr;
-    vk::raii::Queue presentQueue_ = nullptr;
     vk::raii::PhysicalDevice physicalDevice_ = nullptr;
     vk::raii::DebugUtilsMessengerEXT debugMessenger_ = nullptr;
     vk::raii::Instance instance_ = nullptr;
     vk::raii::SurfaceKHR surface_ = nullptr;
-
     vk::raii::Context context_;
+
+    vk::raii::Queue deviceQueue_ = nullptr;
+    vk::raii::Queue presentQueue_ = nullptr;
+    uint32_t graphicsIndex_;
+    uint32_t presentIndex_;
+
+    vk::raii::SwapchainKHR swapChain_ = nullptr;
+    std::vector<vk::Image> swapChainImages_;
+    std::vector<vk::raii::ImageView> swapChainImageViews_;
+    vk::Extent2D swapChainExtent_;
+    vk::SurfaceFormatKHR swapChainSurfaceFormat_;
+
     GLFWwindow* window_;
 };
 
