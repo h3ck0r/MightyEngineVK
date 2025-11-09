@@ -16,7 +16,7 @@ add_subdirectory(external/glm)
 
 file(GLOB CORE_SOURCES "core/*.cc")
 
-add_executable(VulkanEngineExecutable main.cpp 
+add_executable(VulkanEngineExecutable main.cc
     ${CORE_SOURCES})
 
 target_include_directories(VulkanEngineExecutable PRIVATE

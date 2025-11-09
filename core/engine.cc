@@ -75,26 +75,34 @@ bool MightyEngine::initVK() {
     LOG(INFO) << "Enable Validation Layers: " << kEnableValidationLayers << "\n"
               << "More debugging:" << kMoreLogs << "\n";
     if (!createVKInstance()) {
-        LOG(ERR) << "Vulkan Instance is not initialized";
+        LOG(ERR) << "Vulkan Instance is not initialized.\n";
         return false;
     }
     LOG(INFO) << "VK Instance created.\n";
+
     if (!setupDebugMessenger()) {
-        LOG(ERR) << "Debug Messenger is not initialized";
+        LOG(ERR) << "Debug Messenger is not initialized.\n";
         return false;
     }
-    createSurface();
     LOG(INFO) << "Debug Messenger initialized.\n";
+
+    if (!createSurface()) {
+        LOG(ERR) << "Surface is not initialized.\n";
+    }
+    LOG(INFO) << "Surface is initialized\n";
+
     if (!pickPhysicalDevice()) {
-        LOG(ERR) << "Physical device is not picked";
+        LOG(ERR) << "Physical device is not picked.\n";
         return false;
     }
     LOG(INFO) << "Physical device picked.\n";
+
     if (!createLogicalDevice()) {
-        LOG(ERR) << "Logical Device is not created";
+        LOG(ERR) << "Logical Device is not created.\n";
         return false;
     }
     LOG(INFO) << "Logical Device created.\n";
+
     LOG(INFO) << "Finished Vulkan initialization.\n";
     return true;
 }
@@ -105,6 +113,7 @@ bool MightyEngine::createSurface() {
         return false;
     }
     surface_ = vk::raii::SurfaceKHR(instance_, surface);
+
     return true;
 }
 
@@ -112,6 +121,41 @@ bool MightyEngine::createLogicalDevice() {
     std::vector<vk::QueueFamilyProperties> queueFamilyProperties =
         physicalDevice_.getQueueFamilyProperties();
     auto graphicsIndex = findQueueFamilies();
+
+    auto presentIndex =
+        physicalDevice_.getSurfaceSupportKHR(graphicsIndex, *surface_).value
+            ? graphicsIndex
+            : static_cast<uint32_t>(queueFamilyProperties.size());
+    if (presentIndex == queueFamilyProperties.size()) {
+        for (size_t i = 0; i < queueFamilyProperties.size(); i++) {
+            auto hasSupport =
+                physicalDevice_.getSurfaceSupportKHR(static_cast<uint32_t>(i),
+                    *surface_);
+            if ((queueFamilyProperties[i].queueFlags
+                    & vk::QueueFlagBits::eGraphics)
+                && hasSupport.value) {
+                graphicsIndex = static_cast<uint32_t>(i);
+                presentIndex = graphicsIndex;
+                break;
+            }
+        }
+        if (presentIndex == queueFamilyProperties.size()) {
+            for (size_t i = 0; i < queueFamilyProperties.size(); i++) {
+                if (physicalDevice_
+                        .getSurfaceSupportKHR(static_cast<uint32_t>(i),
+                            *surface_)
+                        .value) {
+                    presentIndex = static_cast<uint32_t>(i);
+                    break;
+                }
+            }
+        }
+    }
+    if ((graphicsIndex == queueFamilyProperties.size())
+        || (presentIndex == queueFamilyProperties.size())) {
+        return false;
+    }
+
     float queuePriority = 0.0f;
     vk::DeviceQueueCreateInfo deviceQueueCreateInfo{.queueFamilyIndex =
                                                         graphicsIndex,
@@ -132,7 +176,6 @@ bool MightyEngine::createLogicalDevice() {
             static_cast<uint32_t>(kDeviceExtensions.size()),
         .ppEnabledExtensionNames = kDeviceExtensions.data()};
 
-    // TODO: add result checks
     auto [result, logicalDevice] =
         physicalDevice_.createDevice(deviceCreateInfo);
     if (result != vk::Result::eSuccess) {
@@ -140,6 +183,7 @@ bool MightyEngine::createLogicalDevice() {
     }
     logicalDevice_ = std::move(logicalDevice);
     deviceQueue_ = logicalDevice_.getQueue(graphicsIndex, 0);
+    presentQueue_ = logicalDevice_.getQueue(presentIndex, 0);
 
     return true;
 }

@@ -22,10 +22,12 @@ class MightyEngine {
     bool setupDebugMessenger();
     bool pickPhysicalDevice();
     bool createLogicalDevice();
+    bool createSuface();
     uint32_t findQueueFamilies();
 
     vk::raii::Device logicalDevice_ = nullptr;
     vk::raii::Queue deviceQueue_ = nullptr;
+    vk::raii::Queue presentQueue_ = nullptr;
     vk::raii::PhysicalDevice physicalDevice_ = nullptr;
     vk::raii::DebugUtilsMessengerEXT debugMessenger_ = nullptr;
     vk::raii::Instance instance_ = nullptr;
