@@ -20,6 +20,10 @@ const std::vector<const char*> kDeviceExtensions = {
     vk::KHRSynchronization2ExtensionName,
     vk::KHRCreateRenderpass2ExtensionName,
 };
+const std::vector kDynamicStates = {
+    vk::DynamicState::eViewport,
+    vk::DynamicState::eScissor
+};
 
 #ifdef MORE_LOGS
 inline constexpr bool kMoreLogs = true;

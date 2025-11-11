@@ -11,8 +11,11 @@ import vulkan_hpp;
 #include <GLFW/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
+#include <windows.h>
 
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <ranges>
@@ -21,6 +24,37 @@ import vulkan_hpp;
 #include "globals.h"
 
 namespace core {
+
+std::filesystem::path getExecutableDir() {
+    char buffer[MAX_PATH];
+    GetModuleFileNameA(nullptr, buffer, MAX_PATH);
+    std::filesystem::path exePath(buffer);
+    return exePath.parent_path();
+}
+
+static VKAPI_ATTR vk::Bool32 VKAPI_CALL
+    debugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+        vk::DebugUtilsMessageTypeFlagsEXT type,
+        const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData,
+        void*) {
+    LOG(ERR) << "[" << to_string(type) << "]"
+             << " " << pCallbackData->pMessage << "\n";
+    return vk::False;
+}
+
+static std::optional<std::vector<char>> readFile(const std::string& filename) {
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+    if (!file.is_open()) {
+        return std::nullopt;
+    }
+    std::vector<char> buffer(file.tellg());
+    file.seekg(0, std::ios::beg);
+    file.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    file.close();
+
+    return buffer;
+}
 
 inline vk::Extent2D chooseSwapExtent(GLFWwindow* window,
     const vk::SurfaceCapabilitiesKHR& capabilities) {
@@ -74,16 +108,6 @@ inline std::vector<const char*> getInstanceExtensions() {
     }
 
     return extensions;
-}
-
-static VKAPI_ATTR vk::Bool32 VKAPI_CALL
-    debugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
-        vk::DebugUtilsMessageTypeFlagsEXT type,
-        const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData,
-        void*) {
-    LOG(ERR) << "[" << to_string(type) << "]"
-             << " " << pCallbackData->pMessage << "\n";
-    return vk::False;
 }
 
 MightyEngine::MightyEngine() {}
@@ -155,7 +179,51 @@ bool MightyEngine::initVK() {
     }
     LOG(INFO) << "ImageViews created.\n";
 
+    if (!createGraphicsPipeline()) {
+        LOG(ERR) << "GraphicsPipeline is not created.\n";
+        return false;
+    }
+    LOG(INFO) << "GraphicsPipeline created.\n";
+
+    if (!createDynamicState()) {
+        LOG(ERR) << "DynamicState is not created.\n";
+        return false;
+    }
+    LOG(INFO) << "DynamicState created.\n";
+
     LOG(INFO) << "Finished Vulkan initialization.\n";
+    return true;
+}
+
+[[nodiscard]] vk::raii::ShaderModule MightyEngine::createShaderModule(
+    const std::vector<char>& code) const {
+    vk::ShaderModuleCreateInfo createInfo{.codeSize =
+                                              code.size() * sizeof(char),
+        .pCode = reinterpret_cast<const uint32_t*>(code.data())};
+    return logicalDevice_.createShaderModule(createInfo).value;
+}
+
+bool MightyEngine::createGraphicsPipeline() {
+    auto shaderPath = getExecutableDir() / "shaders" / "slang.spv";
+    auto shaderCode = readFile(shaderPath.string());
+    if (!shaderCode.has_value()) {
+        LOG(ERR) << "Can't find shader file location.\n";
+        return false;
+    }
+    vk::raii::ShaderModule shaderModule =
+        createShaderModule(shaderCode.value());
+
+    vk::PipelineShaderStageCreateInfo vertShaderStageInfo{
+        .stage = vk::ShaderStageFlagBits::eVertex,
+        .module = shaderModule,
+        .pName = "vertMain"};
+
+    vk::PipelineShaderStageCreateInfo fragShaderStageInfo{
+        .stage = vk::ShaderStageFlagBits::eFragment,
+        .module = shaderModule,
+        .pName = "fragMain"};
+
+    shaderStages_ = {vertShaderStageInfo, fragShaderStageInfo};
     return true;
 }
 
@@ -240,6 +308,60 @@ bool MightyEngine::createSwapChain() {
     return true;
 }
 
+bool MightyEngine::createDynamicState() {
+    vk::PipelineDynamicStateCreateInfo dynamicState{
+        .dynamicStateCount = static_cast<uint32_t>(kDynamicStates.size()),
+        .pDynamicStates = kDynamicStates.data()};
+    vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
+    vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
+        .topology = vk::PrimitiveTopology::eTriangleList};
+    vk::Viewport{0.0f,
+        0.0f,
+        static_cast<float>(swapChainExtent_.width),
+        static_cast<float>(swapChainExtent_.height),
+        0.0f,
+        1.0f};
+    vk::PipelineViewportStateCreateInfo viewportState{.viewportCount = 1,
+        .scissorCount = 1};
+    vk::PipelineRasterizationStateCreateInfo rasterizer{.depthClampEnable =
+                                                            vk::False,
+        .rasterizerDiscardEnable = vk::False,
+        .polygonMode = vk::PolygonMode::eFill,
+        .cullMode = vk::CullModeFlagBits::eBack,
+        .frontFace = vk::FrontFace::eClockwise,
+        .depthBiasEnable = vk::False,
+        .depthBiasSlopeFactor = 1.0f,
+        .lineWidth = 1.0f};
+    vk::PipelineMultisampleStateCreateInfo multisampling{
+        .rasterizationSamples = vk::SampleCountFlagBits::e1,
+        .sampleShadingEnable = vk::False};
+    vk::PipelineColorBlendAttachmentState colorBlendAttachment;
+    colorBlendAttachment.colorWriteMask =
+        vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG
+        | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+    colorBlendAttachment.blendEnable = vk::False;
+    colorBlendAttachment.blendEnable = vk::True;
+    colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+    colorBlendAttachment.dstColorBlendFactor =
+        vk::BlendFactor::eOneMinusSrcAlpha;
+    colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
+    colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
+    colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+    colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
+    vk::PipelineColorBlendStateCreateInfo colorBlending{.logicOpEnable =
+                                                            vk::False,
+        .logicOp = vk::LogicOp::eCopy,
+        .attachmentCount = 1,
+        .pAttachments = &colorBlendAttachment};
+    vk::PipelineLayoutCreateInfo pipelineLayoutInfo{.setLayoutCount = 0,
+        .pushConstantRangeCount = 0};
+
+    pipelineLayout_ =
+        logicalDevice_.createPipelineLayout(pipelineLayoutInfo).value;
+
+    return true;
+}
+
 bool MightyEngine::createLogicalDevice() {
     std::vector<vk::QueueFamilyProperties> queueFamilyProperties =
         physicalDevice_.getQueueFamilyProperties();
@@ -286,9 +408,11 @@ bool MightyEngine::createLogicalDevice() {
         .pQueuePriorities = &queuePriority};
 
     vk::StructureChain<vk::PhysicalDeviceFeatures2,
+        vk::PhysicalDeviceVulkan11Features,
         vk::PhysicalDeviceVulkan13Features,
         vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>
         featureChain = {{},
+            {.shaderDrawParameters = true},
             {.dynamicRendering = true},
             {.extendedDynamicState = true}};
     vk::DeviceCreateInfo deviceCreateInfo{
