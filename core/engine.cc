@@ -180,16 +180,22 @@ bool MightyEngine::initVK() {
     LOG(INFO) << "ImageViews created.\n";
 
     if (!createGraphicsPipeline()) {
-        LOG(ERR) << "GraphicsPipeline is not created.\n";
-        return false;
-    }
-    LOG(INFO) << "GraphicsPipeline created.\n";
-
-    if (!createDynamicState()) {
         LOG(ERR) << "DynamicState is not created.\n";
         return false;
     }
     LOG(INFO) << "DynamicState created.\n";
+
+    if (!createGraphicsPipeline()) {
+        LOG(ERR) << "Graphics Pipeline is not created.\n";
+        return false;
+    }
+    LOG(INFO) << "Graphics Pipeline created.\n";
+
+    if (!createCommandPool()) {
+        LOG(ERR) << "Command Pool is not created.\n";
+        return false;
+    }
+    LOG(INFO) << "Graphics Pipeline created.\n";
 
     LOG(INFO) << "Finished Vulkan initialization.\n";
     return true;
@@ -201,30 +207,6 @@ bool MightyEngine::initVK() {
                                               code.size() * sizeof(char),
         .pCode = reinterpret_cast<const uint32_t*>(code.data())};
     return logicalDevice_.createShaderModule(createInfo).value;
-}
-
-bool MightyEngine::createGraphicsPipeline() {
-    auto shaderPath = getExecutableDir() / "shaders" / "slang.spv";
-    auto shaderCode = readFile(shaderPath.string());
-    if (!shaderCode.has_value()) {
-        LOG(ERR) << "Can't find shader file location.\n";
-        return false;
-    }
-    vk::raii::ShaderModule shaderModule =
-        createShaderModule(shaderCode.value());
-
-    vk::PipelineShaderStageCreateInfo vertShaderStageInfo{
-        .stage = vk::ShaderStageFlagBits::eVertex,
-        .module = shaderModule,
-        .pName = "vertMain"};
-
-    vk::PipelineShaderStageCreateInfo fragShaderStageInfo{
-        .stage = vk::ShaderStageFlagBits::eFragment,
-        .module = shaderModule,
-        .pName = "fragMain"};
-
-    shaderStages_ = {vertShaderStageInfo, fragShaderStageInfo};
-    return true;
 }
 
 bool MightyEngine::createImageViews() {
@@ -250,6 +232,14 @@ bool MightyEngine::createSurface() {
     surface_ = vk::raii::SurfaceKHR(instance_, surface);
 
     return true;
+}
+
+bool MightyEngine::createCommandPool() {
+    vk::CommandPoolCreateInfo poolInfo{
+        .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+        .queueFamilyIndex = graphicsIndex_};
+
+        logicalDevice_.createCommandPool(poolInfo);
 }
 
 bool MightyEngine::createSwapChain() {
@@ -308,7 +298,7 @@ bool MightyEngine::createSwapChain() {
     return true;
 }
 
-bool MightyEngine::createDynamicState() {
+bool MightyEngine::createGraphicsPipeline() {
     vk::PipelineDynamicStateCreateInfo dynamicState{
         .dynamicStateCount = static_cast<uint32_t>(kDynamicStates.size()),
         .pDynamicStates = kDynamicStates.data()};
@@ -353,11 +343,55 @@ bool MightyEngine::createDynamicState() {
         .logicOp = vk::LogicOp::eCopy,
         .attachmentCount = 1,
         .pAttachments = &colorBlendAttachment};
+
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{.setLayoutCount = 0,
         .pushConstantRangeCount = 0};
 
-    pipelineLayout_ =
+    graphicsPipelineLayout_ =
         logicalDevice_.createPipelineLayout(pipelineLayoutInfo).value;
+    // Create shaders
+    auto shaderPath = getExecutableDir() / "shaders" / "slang.spv";
+    auto shaderCode = readFile(shaderPath.string());
+    if (!shaderCode.has_value()) {
+        LOG(ERR) << "Can't find shader file location.\n";
+        return false;
+    }
+    vk::raii::ShaderModule shaderModule =
+        createShaderModule(shaderCode.value());
+
+    vk::PipelineShaderStageCreateInfo vertShaderStageInfo{
+        .stage = vk::ShaderStageFlagBits::eVertex,
+        .module = shaderModule,
+        .pName = "vertMain"};
+
+    vk::PipelineShaderStageCreateInfo fragShaderStageInfo{
+        .stage = vk::ShaderStageFlagBits::eFragment,
+        .module = shaderModule,
+        .pName = "fragMain"};
+
+    vk::PipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo,
+        fragShaderStageInfo};
+    // End of create shaders
+
+    vk::PipelineRenderingCreateInfo pipelineRenderingCreateInfo{
+        .colorAttachmentCount = 1,
+        .pColorAttachmentFormats = &swapChainSurfaceFormat_.format};
+    vk::GraphicsPipelineCreateInfo pipelineInfo{
+        .pNext = &pipelineRenderingCreateInfo,
+        .stageCount = 2,
+        .pStages = shaderStages,
+        .pVertexInputState = &vertexInputInfo,
+        .pInputAssemblyState = &inputAssembly,
+        .pViewportState = &viewportState,
+        .pRasterizationState = &rasterizer,
+        .pMultisampleState = &multisampling,
+        .pColorBlendState = &colorBlending,
+        .pDynamicState = &dynamicState,
+        .layout = graphicsPipelineLayout_,
+        .renderPass = nullptr};
+
+    graphicsPipeline_ =
+        logicalDevice_.createGraphicsPipeline(nullptr, pipelineInfo).value;
 
     return true;
 }

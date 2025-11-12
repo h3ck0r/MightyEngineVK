@@ -25,7 +25,7 @@ class MightyEngine {
     bool createSwapChain();
     bool createImageViews();
     bool createGraphicsPipeline();
-    bool createDynamicState();
+    bool createCommandPool();
     uint32_t findQueueFamilies();
     [[nodiscard]] vk::raii::ShaderModule createShaderModule(
         const std::vector<char>& code) const;
@@ -47,8 +47,10 @@ class MightyEngine {
     std::vector<vk::raii::ImageView> swapChainImageViews_;
     vk::Extent2D swapChainExtent_;
     vk::SurfaceFormatKHR swapChainSurfaceFormat_;
-    vk::raii::PipelineLayout pipelineLayout_ = nullptr;
-    std::vector<vk::PipelineShaderStageCreateInfo> shaderStages_;
+    vk::raii::PipelineLayout graphicsPipelineLayout_ = nullptr;
+    vk::raii::Pipeline graphicsPipeline_ = nullptr;
+
+    vk::raii::CommandPool commandPool_ = nullptr;
 
     GLFWwindow* window_;
 };
