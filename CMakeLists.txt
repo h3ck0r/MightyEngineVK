@@ -25,6 +25,17 @@ add_custom_target(CompileShaders ALL
     VERBATIM
 )
 
+set(ASSETS_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
+set(ASSETS_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/assets")
+
+add_custom_target(CopyAssets ALL
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${ASSETS_OUT_DIR}
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${ASSETS_SRC_DIR} ${ASSETS_OUT_DIR}
+    COMMENT "Copying assets to binary folder..."
+    VERBATIM
+)
+
 find_package(Vulkan REQUIRED)
 add_subdirectory(external/glfw)
 add_subdirectory(external/glm)
@@ -32,7 +43,12 @@ add_subdirectory(external/glm)
 file(GLOB CORE_SOURCES "core/*.cc")
 
 add_executable(VulkanEngineExecutable main.cc ${CORE_SOURCES})
-target_include_directories(VulkanEngineExecutable PRIVATE ${Vulkan_INCLUDE_DIRS} core)
+target_include_directories(VulkanEngineExecutable PRIVATE
+    ${Vulkan_INCLUDE_DIRS}
+    core
+    external/stb
+)
 target_link_libraries(VulkanEngineExecutable PUBLIC Vulkan::Vulkan glfw glm)
 
-add_dependencies(VulkanEngineExecutable CompileShaders)
+add_dependencies(VulkanEngineExecutable CompileShaders CopyAssets)
+
