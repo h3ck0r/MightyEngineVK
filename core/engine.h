@@ -27,6 +27,16 @@ class MightyEngine {
     bool createGraphicsPipeline();
     bool createCommandPool();
     bool createCommandBuffer();
+    bool drawFrame();
+    bool createSyncObjects();
+    void recordCommandBuffer(uint32_t imageIndex);
+    void transitioImageLayout(uint32_t imageIndex,
+        vk::ImageLayout oldLayout,
+        vk::ImageLayout newLayout,
+        vk::AccessFlags2 srcAccessMask,
+        vk::AccessFlags2 dstAccessMask,
+        vk::PipelineStageFlags2 srcStageMask,
+        vk::PipelineStageFlags2 dstStageMask);
     uint32_t findQueueFamilies();
     [[nodiscard]] vk::raii::ShaderModule createShaderModule(
         const std::vector<char>& code) const;
@@ -53,6 +63,10 @@ class MightyEngine {
 
     vk::raii::CommandPool commandPool_ = nullptr;
     vk::raii::CommandBuffer commandBuffer_ = nullptr;
+
+    vk::raii::Semaphore presentCompleteSemaphore_ = nullptr;
+    vk::raii::Semaphore renderFinishedSemaphore_ = nullptr;
+    vk::raii::Fence drawFence_ = nullptr;
 
     GLFWwindow* window_;
 };

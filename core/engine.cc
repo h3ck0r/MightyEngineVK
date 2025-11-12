@@ -110,6 +110,86 @@ inline std::vector<const char*> getInstanceExtensions() {
     return extensions;
 }
 
+void MightyEngine::recordCommandBuffer(uint32_t imageIndex) {
+    // Before starting rendering, transition the swapchain image to
+    // COLOR_ATTACHMENT_OPTIMAL
+    transitioImageLayout(imageIndex,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eColorAttachmentOptimal,
+        {},  // srcAccessMask (no need to wait for previous operations)
+        vk::AccessFlagBits2::eColorAttachmentWrite,          // dstAccessMask
+        vk::PipelineStageFlagBits2::eColorAttachmentOutput,  // srcStage
+        vk::PipelineStageFlagBits2::eColorAttachmentOutput   // dstStage
+    );
+
+    vk::ClearColorValue clearColor(
+        std::array<float, 4>({0.0f, 0.0f, 0.0f, 1.0f}));
+    vk::RenderingAttachmentInfo attachmentInfo = {
+        .imageView = swapChainImageViews_[imageIndex],
+        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .loadOp = vk::AttachmentLoadOp::eClear,
+        .storeOp = vk::AttachmentStoreOp::eStore,
+        .clearValue = {clearColor}};
+
+    vk::RenderingInfo renderingInfo = {.renderArea = {.offset = {0, 0},
+                                           .extent = swapChainExtent_},
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &attachmentInfo};
+
+    commandBuffer_.beginRendering(renderingInfo);
+    commandBuffer_.bindPipeline(vk::PipelineBindPoint::eGraphics,
+        graphicsPipeline_);
+    commandBuffer_.setViewport(0,
+        vk::Viewport(0.0f,
+            0.0f,
+            static_cast<float>(swapChainExtent_.width),
+            static_cast<float>(swapChainExtent_.height),
+            0.0f,
+            1.0f));
+    commandBuffer_.setScissor(0,
+        vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent_));
+    commandBuffer_.draw(3, 1, 0, 0);
+    commandBuffer_.endRendering();
+
+    transitioImageLayout(imageIndex,
+        vk::ImageLayout::eColorAttachmentOptimal,
+        vk::ImageLayout::ePresentSrcKHR,
+        vk::AccessFlagBits2::eColorAttachmentWrite,          // srcAccessMask
+        {},                                                  // dstAccessMask
+        vk::PipelineStageFlagBits2::eColorAttachmentOutput,  // srcStage
+        vk::PipelineStageFlagBits2::eBottomOfPipe            // dstStage
+    );
+    commandBuffer_.end();
+}
+
+void MightyEngine::transitioImageLayout(uint32_t imageIndex,
+    vk::ImageLayout oldLayout,
+    vk::ImageLayout newLayout,
+    vk::AccessFlags2 srcAccessMask,
+    vk::AccessFlags2 dstAccessMask,
+    vk::PipelineStageFlags2 srcStageMask,
+    vk::PipelineStageFlags2 dstStageMask) {
+    vk::ImageMemoryBarrier2 barrier = {.srcStageMask = srcStageMask,
+        .srcAccessMask = srcAccessMask,
+        .dstStageMask = dstStageMask,
+        .dstAccessMask = dstAccessMask,
+        .oldLayout = oldLayout,
+        .newLayout = newLayout,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = swapChainImages_[imageIndex],
+        .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1}};
+    vk::DependencyInfo dependencyInfo = {.dependencyFlags = {},
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &barrier};
+    commandBuffer_.pipelineBarrier2(dependencyInfo);
+}
+
 MightyEngine::MightyEngine() {}
 
 void MightyEngine::run() {
@@ -132,6 +212,7 @@ bool MightyEngine::initWindow() {
 void MightyEngine::loop() {
     while (!glfwWindowShouldClose(window_)) {
         glfwPollEvents();
+        drawFrame();
     }
 }
 bool MightyEngine::initVK() {
@@ -180,12 +261,6 @@ bool MightyEngine::initVK() {
     LOG(INFO) << "ImageViews created.\n";
 
     if (!createGraphicsPipeline()) {
-        LOG(ERR) << "DynamicState is not created.\n";
-        return false;
-    }
-    LOG(INFO) << "DynamicState created.\n";
-
-    if (!createGraphicsPipeline()) {
         LOG(ERR) << "Graphics Pipeline is not created.\n";
         return false;
     }
@@ -202,7 +277,76 @@ bool MightyEngine::initVK() {
     }
     LOG(INFO) << "Command Buffer created.\n";
 
+    if (!createSyncObjects()) {
+        LOG(ERR) << "Sync Objects are not created.\n";
+        return false;
+    }
+    LOG(INFO) << "Sync Objects created.\n";
+
     LOG(INFO) << "Finished Vulkan initialization.\n";
+    return true;
+}
+
+bool MightyEngine::createSyncObjects() {
+    presentCompleteSemaphore_ =
+        logicalDevice_.createSemaphore(vk::SemaphoreCreateInfo()).value;
+
+    renderFinishedSemaphore_ =
+        logicalDevice_.createSemaphore(vk::SemaphoreCreateInfo()).value;
+    drawFence_ = logicalDevice_
+                     .createFence({.flags = vk::FenceCreateFlagBits::eSignaled})
+                     .value;
+
+    return true;
+}
+
+// At a high level, rendering a frame in Vulkan consists of a common set of
+// steps:
+// * Wait for the previous frame to finish
+// * Acquire an image from the swap chain
+// * Record a command buffer which draws the scene onto that image
+// * Submit the recorded command buffer
+// * Present the swap chain image
+bool MightyEngine::drawFrame() {
+    auto [result, imageIndex] = swapChain_.acquireNextImage(UINT64_MAX,
+        *presentCompleteSemaphore_,
+        nullptr);
+    recordCommandBuffer(imageIndex);
+
+    logicalDevice_.resetFences(*drawFence_);
+
+    vk::PipelineStageFlags waitDestinationStageMask(
+        vk::PipelineStageFlagBits::eColorAttachmentOutput);
+    const vk::SubmitInfo submitInfo{.waitSemaphoreCount = 1,
+        .pWaitSemaphores = &*presentCompleteSemaphore_,
+        .pWaitDstStageMask = &waitDestinationStageMask,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &*commandBuffer_,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &*renderFinishedSemaphore_};
+
+    deviceQueue_.submit(submitInfo, *drawFence_);
+
+    while (vk::Result::eTimeout
+           == logicalDevice_.waitForFences(*drawFence_, vk::True, UINT64_MAX))
+        ;
+
+    const vk::PresentInfoKHR presentInfoKHR{.waitSemaphoreCount = 1,
+        .pWaitSemaphores = &*renderFinishedSemaphore_,
+        .swapchainCount = 1,
+        .pSwapchains = &*swapChain_,
+        .pImageIndices = &imageIndex};
+    result = deviceQueue_.presentKHR(presentInfoKHR);
+    switch (result) {
+        case vk::Result::eSuccess:
+            break;
+        case vk::Result::eSuboptimalKHR:
+            std::cout << "vk::Queue::presentKHR returned "
+                         "vk::Result::eSuboptimalKHR !\n";
+            break;
+        default:
+            break;  // an unexpected result is returned!
+    }
     return true;
 }
 
@@ -223,16 +367,18 @@ bool MightyEngine::createCommandBuffer() {
     return true;
 }
 bool MightyEngine::createImageViews() {
-    swapChainImages_.clear();
-
     vk::ImageViewCreateInfo imageViewCreateInfo{.viewType =
                                                     vk::ImageViewType::e2D,
         .format = swapChainSurfaceFormat_.format,
         .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}};
     for (auto image : swapChainImages_) {
         imageViewCreateInfo.image = image;
-        swapChainImageViews_.emplace_back(
-            logicalDevice_.createImageView(imageViewCreateInfo).value);
+        auto [result, value] =
+            logicalDevice_.createImageView(imageViewCreateInfo);
+        if (result != vk::Result::eSuccess) {
+            return false;
+        }
+        swapChainImageViews_.emplace_back(std::move(value));
     }
     return true;
 }
@@ -252,15 +398,26 @@ bool MightyEngine::createCommandPool() {
         .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
         .queueFamilyIndex = graphicsIndex_};
 
-    commandPool_ = logicalDevice_.createCommandPool(poolInfo).value;
+    auto [result, commandPool] = logicalDevice_.createCommandPool(poolInfo);
+    if (result != vk::Result::eSuccess) {
+        return false;
+    }
+    commandPool_ = std::move(commandPool);
     return true;
 }
 
 bool MightyEngine::createSwapChain() {
-    auto surfaceCapabilities =
-        physicalDevice_.getSurfaceCapabilitiesKHR(surface_).value;
-    swapChainSurfaceFormat_ = chooseSwapSurfaceFormat(
-        physicalDevice_.getSurfaceFormatsKHR(surface_).value);
+    auto [result, surfaceCapabilities] =
+        physicalDevice_.getSurfaceCapabilitiesKHR(surface_);
+    if (result != vk::Result::eSuccess) {
+        return false;
+    }
+    auto [surfaceResult, surfaceFormat] =
+        physicalDevice_.getSurfaceFormatsKHR(surface_);
+    if (surfaceResult != vk::Result::eSuccess) {
+        return false;
+    }
+    swapChainSurfaceFormat_ = chooseSwapSurfaceFormat(surfaceFormat);
     swapChainExtent_ = chooseSwapExtent(window_, surfaceCapabilities);
 
     auto minImageCount = surfaceCapabilities.minImageCount < 3
@@ -276,7 +433,11 @@ bool MightyEngine::createSwapChain() {
         && imageCount > surfaceCapabilities.maxImageCount) {
         imageCount = surfaceCapabilities.maxImageCount;
     }
-
+    auto [presentModeResult, presentMode] =
+        physicalDevice_.getSurfacePresentModesKHR(surface_);
+    if (presentModeResult != vk::Result::eSuccess) {
+        return false;
+    }
     vk::SwapchainCreateInfoKHR swapChainCreateInfo{
         .flags = vk::SwapchainCreateFlagsKHR(),
         .surface = surface_,
@@ -289,8 +450,7 @@ bool MightyEngine::createSwapChain() {
         .imageSharingMode = vk::SharingMode::eExclusive,
         .preTransform = surfaceCapabilities.currentTransform,
         .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
-        .presentMode = chooseSwapPresentMode(
-            physicalDevice_.getSurfacePresentModesKHR(surface_).value),
+        .presentMode = chooseSwapPresentMode(presentMode),
         .clipped = true,
         .oldSwapchain = nullptr};
 
@@ -306,8 +466,18 @@ bool MightyEngine::createSwapChain() {
         swapChainCreateInfo.queueFamilyIndexCount = 0;      // Optional
         swapChainCreateInfo.pQueueFamilyIndices = nullptr;  // Optional
     }
-    swapChain_ = logicalDevice_.createSwapchainKHR(swapChainCreateInfo).value;
-    swapChainImages_ = swapChain_.getImages().value;
+    auto [swapChainResult, swapChain] =
+        logicalDevice_.createSwapchainKHR(swapChainCreateInfo);
+    if (swapChainResult != vk::Result::eSuccess) {
+        return false;
+    }
+    swapChain_ = std::move(swapChain);
+
+    auto [swapChainImagesResult, swapChainImages] = swapChain_.getImages();
+    if (swapChainImagesResult != vk::Result::eSuccess) {
+        return false;
+    }
+    swapChainImages_ = swapChainImages;
 
     return true;
 }
@@ -355,8 +525,12 @@ bool MightyEngine::createGraphicsPipeline() {
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{.setLayoutCount = 0,
         .pushConstantRangeCount = 0};
 
-    graphicsPipelineLayout_ =
-        logicalDevice_.createPipelineLayout(pipelineLayoutInfo).value;
+    auto [graphicsPipelineLayoutResult, graphicsPipelineLayout] =
+        logicalDevice_.createPipelineLayout(pipelineLayoutInfo);
+    if (graphicsPipelineLayoutResult != vk::Result::eSuccess) {
+        return false;
+    }
+    graphicsPipelineLayout_ = std::move(graphicsPipelineLayout);
     // Create shaders
     auto shaderPath = getExecutableDir() / "shaders" / "slang.spv";
     auto shaderCode = readFile(shaderPath.string());
@@ -398,9 +572,12 @@ bool MightyEngine::createGraphicsPipeline() {
         .layout = graphicsPipelineLayout_,
         .renderPass = nullptr};
 
-    graphicsPipeline_ =
-        logicalDevice_.createGraphicsPipeline(nullptr, pipelineInfo).value;
-
+    auto [graphicsPipelineResult, graphicsPipeline] =
+        logicalDevice_.createGraphicsPipeline(nullptr, pipelineInfo);
+    if (graphicsPipelineResult != vk::Result::eSuccess) {
+        return false;
+    }
+    graphicsPipeline_ = std::move(graphicsPipeline);
     return true;
 }
 
