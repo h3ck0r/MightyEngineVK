@@ -195,7 +195,12 @@ bool MightyEngine::initVK() {
         LOG(ERR) << "Command Pool is not created.\n";
         return false;
     }
-    LOG(INFO) << "Graphics Pipeline created.\n";
+
+    if (!createCommandBuffer()) {
+        LOG(ERR) << "Command Buffer is not created.\n";
+        return false;
+    }
+    LOG(INFO) << "Command Buffer created.\n";
 
     LOG(INFO) << "Finished Vulkan initialization.\n";
     return true;
@@ -209,6 +214,14 @@ bool MightyEngine::initVK() {
     return logicalDevice_.createShaderModule(createInfo).value;
 }
 
+bool MightyEngine::createCommandBuffer() {
+    vk::CommandBufferAllocateInfo allocInfo{.commandPool = commandPool_,
+        .level = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = 1};
+    commandBuffer_ = std::move(
+        logicalDevice_.allocateCommandBuffers(allocInfo).value.front());
+    return true;
+}
 bool MightyEngine::createImageViews() {
     swapChainImages_.clear();
 
@@ -239,7 +252,8 @@ bool MightyEngine::createCommandPool() {
         .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
         .queueFamilyIndex = graphicsIndex_};
 
-        logicalDevice_.createCommandPool(poolInfo);
+    commandPool_ = logicalDevice_.createCommandPool(poolInfo).value;
+    return true;
 }
 
 bool MightyEngine::createSwapChain() {
@@ -305,12 +319,6 @@ bool MightyEngine::createGraphicsPipeline() {
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
         .topology = vk::PrimitiveTopology::eTriangleList};
-    vk::Viewport{0.0f,
-        0.0f,
-        static_cast<float>(swapChainExtent_.width),
-        static_cast<float>(swapChainExtent_.height),
-        0.0f,
-        1.0f};
     vk::PipelineViewportStateCreateInfo viewportState{.viewportCount = 1,
         .scissorCount = 1};
     vk::PipelineRasterizationStateCreateInfo rasterizer{.depthClampEnable =

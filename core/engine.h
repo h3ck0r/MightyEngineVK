@@ -26,6 +26,7 @@ class MightyEngine {
     bool createImageViews();
     bool createGraphicsPipeline();
     bool createCommandPool();
+    bool createCommandBuffer();
     uint32_t findQueueFamilies();
     [[nodiscard]] vk::raii::ShaderModule createShaderModule(
         const std::vector<char>& code) const;
@@ -51,6 +52,7 @@ class MightyEngine {
     vk::raii::Pipeline graphicsPipeline_ = nullptr;
 
     vk::raii::CommandPool commandPool_ = nullptr;
+    vk::raii::CommandBuffer commandBuffer_ = nullptr;
 
     GLFWwindow* window_;
 };
