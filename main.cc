@@ -8,5 +8,4 @@ int main() {
 
     engine.run();
 
-    while (true) {}
 }

@@ -137,8 +137,9 @@ void MightyEngine::loop() {
 }
 bool MightyEngine::initVK() {
     LOG(INFO) << "Initilazing " << kAppName << "\n";
-    LOG(INFO) << "Enable Validation Layers: " << kEnableValidationLayers << "\n"
-              << "More debugging:" << kMoreLogs << "\n";
+    LOG(INFO) << "Enable Validation Layers:\n"
+                  << kEnableValidationLayers << "\n"
+                  << "More debugging:" << kMoreLogs << "\n";
     if (!createVKInstance()) {
         LOG(ERR) << "Vulkan Instance is not initialized.\n";
         return false;
@@ -595,11 +596,10 @@ bool MightyEngine::setupDebugMessenger() {
     // TODO: add result checks
     auto [result, debugMessenger] = instance_.createDebugUtilsMessengerEXT(
         debugUtilsMessengerCreateInfoEXT);
-
-    debugMessenger_ = std::move(debugMessenger);
     if (result != vk::Result::eSuccess) {
         return false;
     }
+    debugMessenger_ = std::move(debugMessenger);
     return true;
 }
 
@@ -671,7 +671,6 @@ bool MightyEngine::createVKInstance() {
         return false;
     }
     instance_ = std::move(instance);
-    // END OF CREATE INSTANCE
     return true;
 }
 

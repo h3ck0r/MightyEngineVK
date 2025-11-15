@@ -18,6 +18,92 @@
 
 namespace core {
 
+using enum vk::DebugUtilsMessageSeverityFlagBitsEXT;
+
+#define LOG(severity)          LogStream(severity, __FILE__, __LINE__)
+#define LOG_VK(severity, type) LogStream(severity, type, __FILE__, __LINE__)
+enum LogType { INFO, ERR, WARR };
+
+inline const char* VkLogSeverityToString(
+    vk::DebugUtilsMessageSeverityFlagBitsEXT severity) {
+    switch (severity) {
+        case eVerbose:
+            return "V";
+        case eWarning:
+            return "W";
+        case eError:
+            return "E";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+inline const char* LogSeverityToString(LogType type) {
+    switch (type) {
+        case INFO:
+            return "INFO";
+        case ERR:
+            return "ERROR";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+inline const char* LogTypeToString(vk::DebugUtilsMessageTypeFlagsEXT type) {
+    if (type & vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral)
+        return "General";
+    if (type & vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation)
+        return "Validation";
+    if (type & vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance)
+        return "Performance";
+    if (type & vk::DebugUtilsMessageTypeFlagBitsEXT::eDeviceAddressBinding)
+        return "DeviceAddressBinding";
+    return "UNKNOWN";
+}
+
+class LogStream {
+   public:
+    LogStream(LogType severity, const char* file, int line)
+        : severity_(severity), file_(file), line_(line) {}
+
+    LogStream(vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+        vk::DebugUtilsMessageTypeFlagsEXT type,
+        const char* file,
+        int line)
+        : vkSeverity_(severity), type_(type), file_(file), line_(line) {}
+
+    ~LogStream() {
+        std::ostream& out =
+            (severity_ == ERR || vkSeverity_ == eError) ? std::cerr : std::cout;
+        std::filesystem::path p(file_);
+        if (type_ != vk::DebugUtilsMessageTypeFlagsEXT{}) {
+            out << "[" << VkLogSeverityToString(vkSeverity_) << "]" << "["
+                << LogTypeToString(type_) << "]"
+                << "[" << p.filename().string() << ":" << line_ << "] "
+                << stream_.str();
+        } else {
+            out << "[" << LogSeverityToString(severity_) << "]"
+                << "[" << p.filename().string() << ":" << line_ << "] "
+                << stream_.str();
+        }
+        out.flush();
+    }
+
+    template <typename T>
+    LogStream& operator<<(const T& value) {
+        stream_ << value;
+        return *this;
+    }
+
+   private:
+    vk::DebugUtilsMessageSeverityFlagBitsEXT vkSeverity_;
+    LogType severity_;
+    vk::DebugUtilsMessageTypeFlagsEXT type_;
+    const char* file_;
+    int line_;
+    std::ostringstream stream_;
+};
+
 inline void setWindowIcon(GLFWwindow* window, const char* iconPath) {
     int width, height, channels;
     unsigned char* pixels =
@@ -49,8 +135,7 @@ inline VKAPI_ATTR vk::Bool32 VKAPI_CALL
         vk::DebugUtilsMessageTypeFlagsEXT type,
         const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData,
         void*) {
-    LOG(ERR) << "[" << to_string(type) << "]"
-             << " " << pCallbackData->pMessage << "\n";
+    LOG_VK(severity, type) << pCallbackData->pMessage << "\n";
     return vk::False;
 }
 
