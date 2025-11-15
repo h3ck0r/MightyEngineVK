@@ -20,6 +20,7 @@ inline constexpr bool kEnableValidationLayers = false;
 inline constexpr bool kEnableValidationLayers = true;
 #endif
 
+inline constexpr int MAX_FRAMES_IN_FLIGHT = 3;
 inline constexpr uint32_t kWindowWidth = 800;
 inline constexpr uint32_t kWindowHeight = 600;
 inline constexpr std::string_view kAppName = "MightyEngine";

@@ -27,7 +27,8 @@ namespace core {
 void MightyEngine::recordCommandBuffer(uint32_t imageIndex) {
     vk::CommandBufferBeginInfo beginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit};
-    commandBuffer_.begin(beginInfo);
+    auto currentCommandBuffer = &commandBuffers_[currentFrame_];
+    currentCommandBuffer->begin(beginInfo);
 
     // Before starting rendering, transition the swapchain image to
     // COLOR_ATTACHMENT_OPTIMAL
@@ -55,20 +56,20 @@ void MightyEngine::recordCommandBuffer(uint32_t imageIndex) {
         .colorAttachmentCount = 1,
         .pColorAttachments = &attachmentInfo};
 
-    commandBuffer_.beginRendering(renderingInfo);
-    commandBuffer_.bindPipeline(vk::PipelineBindPoint::eGraphics,
+    currentCommandBuffer->beginRendering(renderingInfo);
+    currentCommandBuffer->bindPipeline(vk::PipelineBindPoint::eGraphics,
         graphicsPipeline_);
-    commandBuffer_.setViewport(0,
+    currentCommandBuffer->setViewport(0,
         vk::Viewport(0.0f,
             0.0f,
             static_cast<float>(swapChainExtent_.width),
             static_cast<float>(swapChainExtent_.height),
             0.0f,
             1.0f));
-    commandBuffer_.setScissor(0,
+    currentCommandBuffer->setScissor(0,
         vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent_));
-    commandBuffer_.draw(3, 1, 0, 0);
-    commandBuffer_.endRendering();
+    currentCommandBuffer->draw(3, 1, 0, 0);
+    currentCommandBuffer->endRendering();
 
     transitioImageLayout(imageIndex,
         vk::ImageLayout::eColorAttachmentOptimal,
@@ -78,7 +79,7 @@ void MightyEngine::recordCommandBuffer(uint32_t imageIndex) {
         vk::PipelineStageFlagBits2::eColorAttachmentOutput,  // srcStage
         vk::PipelineStageFlagBits2::eBottomOfPipe            // dstStage
     );
-    commandBuffer_.end();
+    currentCommandBuffer->end();
 }
 
 void MightyEngine::transitioImageLayout(uint32_t imageIndex,
@@ -105,7 +106,7 @@ void MightyEngine::transitioImageLayout(uint32_t imageIndex,
     vk::DependencyInfo dependencyInfo = {.dependencyFlags = {},
         .imageMemoryBarrierCount = 1,
         .pImageMemoryBarriers = &barrier};
-    commandBuffer_.pipelineBarrier2(dependencyInfo);
+    commandBuffers_[currentFrame_].pipelineBarrier2(dependencyInfo);
 }
 
 MightyEngine::MightyEngine() {}
@@ -133,6 +134,8 @@ void MightyEngine::loop() {
     while (!glfwWindowShouldClose(window_)) {
         glfwPollEvents();
         drawFrame();
+
+        currentFrame_ = (currentFrame_ + 1) % MAX_FRAMES_IN_FLIGHT;
     }
     logicalDevice_.waitIdle();
 }
@@ -158,33 +161,35 @@ void MightyEngine::initVK() {
 // * Submit the recorded command buffer
 // * Present the swap chain image
 void MightyEngine::drawFrame() {
-    deviceQueue_.waitIdle();
-    auto imageIndex =
-        swapChain_
-            .acquireNextImage(UINT64_MAX, *presentCompleteSemaphore_, nullptr)
-            .value;
-    recordCommandBuffer(imageIndex);
+    while (vk::Result::eTimeout
+           == logicalDevice_.waitForFences(*inFlightFences_[currentFrame_],
+               vk::True,
+               UINT64_MAX))
+        ;
+    auto imageIndex = swapChain_
+                          .acquireNextImage(UINT64_MAX,
+                              *presentCompleteSemaphores_[currentFrame_],
+                              nullptr)
+                          .value;
 
-    logicalDevice_.resetFences(*drawFence_);
+    logicalDevice_.resetFences(*inFlightFences_[currentFrame_]);
+    commandBuffers_[currentFrame_].reset();
+    recordCommandBuffer(imageIndex);
 
     vk::PipelineStageFlags waitDestinationStageMask(
         vk::PipelineStageFlagBits::eColorAttachmentOutput);
     const vk::SubmitInfo submitInfo{.waitSemaphoreCount = 1,
-        .pWaitSemaphores = &*presentCompleteSemaphore_,
+        .pWaitSemaphores = &*presentCompleteSemaphores_[currentFrame_],
         .pWaitDstStageMask = &waitDestinationStageMask,
         .commandBufferCount = 1,
-        .pCommandBuffers = &*commandBuffer_,
+        .pCommandBuffers = &*commandBuffers_[currentFrame_],
         .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &*renderFinishedSemaphore_};
+        .pSignalSemaphores = &*renderFinishedSemaphores_[currentFrame_]};
 
-    deviceQueue_.submit(submitInfo, *drawFence_);
-
-    while (vk::Result::eTimeout
-           == logicalDevice_.waitForFences(*drawFence_, vk::True, UINT64_MAX))
-        ;
+    deviceQueue_.submit(submitInfo, inFlightFences_[currentFrame_]);
 
     const vk::PresentInfoKHR presentInfoKHR{.waitSemaphoreCount = 1,
-        .pWaitSemaphores = &*renderFinishedSemaphore_,
+        .pWaitSemaphores = &*renderFinishedSemaphores_[currentFrame_],
         .swapchainCount = 1,
         .pSwapchains = &*swapChain_,
         .pImageIndices = &imageIndex};
@@ -234,7 +239,7 @@ void MightyEngine::createSwapChain() {
     vk::SwapchainCreateInfoKHR swapChainCreateInfo{
         .flags = vk::SwapchainCreateFlagsKHR(),
         .surface = surface_,
-        .minImageCount = surfaceCapabilities.minImageCount + 1,
+        .minImageCount = MAX_FRAMES_IN_FLIGHT,
         .imageFormat = swapChainSurfaceFormat_.format,
         .imageColorSpace = swapChainSurfaceFormat_.colorSpace,
         .imageExtent = swapChainExtent_,
@@ -348,18 +353,18 @@ void MightyEngine::createGraphicsPipeline() {
 
     vk::CommandBufferAllocateInfo allocInfo{.commandPool = commandPool_,
         .level = vk::CommandBufferLevel::ePrimary,
-        .commandBufferCount = 1};
-    commandBuffer_ = std::move(
-        logicalDevice_.allocateCommandBuffers(allocInfo).value.front());
+        .commandBufferCount = MAX_FRAMES_IN_FLIGHT};
+    commandBuffers_ = logicalDevice_.allocateCommandBuffers(allocInfo).value;
 
-    presentCompleteSemaphore_ =
-        logicalDevice_.createSemaphore(vk::SemaphoreCreateInfo()).value;
-
-    renderFinishedSemaphore_ =
-        logicalDevice_.createSemaphore(vk::SemaphoreCreateInfo()).value;
-    drawFence_ = logicalDevice_
-                     .createFence({.flags = vk::FenceCreateFlagBits::eSignaled})
-                     .value;
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        presentCompleteSemaphores_.emplace_back(
+            logicalDevice_.createSemaphore(vk::SemaphoreCreateInfo()).value);
+        renderFinishedSemaphores_.emplace_back(
+            logicalDevice_.createSemaphore(vk::SemaphoreCreateInfo()).value);
+        inFlightFences_.emplace_back(logicalDevice_
+                .createFence({.flags = vk::FenceCreateFlagBits::eSignaled})
+                .value);
+    }
 }
 
 void MightyEngine::createLogicalDevice() {

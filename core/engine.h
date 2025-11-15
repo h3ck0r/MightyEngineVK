@@ -57,11 +57,12 @@ class MightyEngine {
     vk::raii::Pipeline graphicsPipeline_ = nullptr;
 
     vk::raii::CommandPool commandPool_ = nullptr;
-    vk::raii::CommandBuffer commandBuffer_ = nullptr;
+    std::vector<vk::raii::CommandBuffer> commandBuffers_;
 
-    vk::raii::Semaphore presentCompleteSemaphore_ = nullptr;
-    vk::raii::Semaphore renderFinishedSemaphore_ = nullptr;
-    vk::raii::Fence drawFence_ = nullptr;
+    std::vector<vk::raii::Semaphore> presentCompleteSemaphores_;
+    std::vector<vk::raii::Semaphore> renderFinishedSemaphores_;
+    std::vector<vk::raii::Fence> inFlightFences_;
+    uint32_t currentFrame_ = 0;
 
     GLFWwindow* window_;
 };
