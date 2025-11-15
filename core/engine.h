@@ -15,20 +15,16 @@ class MightyEngine {
    private:
     void loop();
     void cleanup();
-    bool initWindow();
-    bool initVK();
-    bool createSurface();
-    bool createVKInstance();
-    bool setupDebugMessenger();
-    bool pickPhysicalDevice();
-    bool createLogicalDevice();
-    bool createSwapChain();
-    bool createImageViews();
-    bool createGraphicsPipeline();
-    bool createCommandPool();
-    bool createCommandBuffer();
-    bool drawFrame();
-    bool createSyncObjects();
+    void initWindow();
+    void initVK();
+    void createSurface();
+    void createVKInstance();
+    void setupDebugMessenger();
+    void createLogicalDevice();
+    void createSwapChain();
+    void createImageViews();
+    void createGraphicsPipeline();
+    void drawFrame();
     void recordCommandBuffer(uint32_t imageIndex);
     void transitioImageLayout(uint32_t imageIndex,
         vk::ImageLayout oldLayout,
@@ -37,7 +33,6 @@ class MightyEngine {
         vk::AccessFlags2 dstAccessMask,
         vk::PipelineStageFlags2 srcStageMask,
         vk::PipelineStageFlags2 dstStageMask);
-    uint32_t findQueueFamilies();
     [[nodiscard]] vk::raii::ShaderModule createShaderModule(
         const std::vector<char>& code) const;
 
@@ -50,8 +45,7 @@ class MightyEngine {
 
     vk::raii::Queue deviceQueue_ = nullptr;
     vk::raii::Queue presentQueue_ = nullptr;
-    uint32_t graphicsIndex_;
-    uint32_t presentIndex_;
+    uint32_t graphicsQueueFamilyIndex_ = 0;
 
     vk::raii::SwapchainKHR swapChain_ = nullptr;
     std::vector<vk::Image> swapChainImages_;

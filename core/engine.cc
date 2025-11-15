@@ -116,7 +116,8 @@ void MightyEngine::run() {
     loop();
     cleanup();
 }
-bool MightyEngine::initWindow() {
+
+void MightyEngine::initWindow() {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
@@ -127,98 +128,28 @@ bool MightyEngine::initWindow() {
         nullptr);
 
     setWindowIcon(window_, "assets/ICON.png");
-    return true;
 }
 void MightyEngine::loop() {
     while (!glfwWindowShouldClose(window_)) {
         glfwPollEvents();
         drawFrame();
     }
+    logicalDevice_.waitIdle();
 }
-bool MightyEngine::initVK() {
+void MightyEngine::initVK() {
     LOG(INFO) << "Initilazing " << kAppName << "\n";
     LOG(INFO) << "Enable Validation Layers:\n"
-                  << kEnableValidationLayers << "\n"
-                  << "More debugging:" << kMoreLogs << "\n";
-    if (!createVKInstance()) {
-        LOG(ERR) << "Vulkan Instance is not initialized.\n";
-        return false;
-    }
-    LOG(INFO) << "VK Instance created.\n";
-
-    if (!setupDebugMessenger()) {
-        LOG(ERR) << "Debug Messenger is not initialized.\n";
-        return false;
-    }
-    LOG(INFO) << "Debug Messenger initialized.\n";
-
-    if (!createSurface()) {
-        LOG(ERR) << "Surface is not initialized.\n";
-    }
-    LOG(INFO) << "Surface is initialized\n";
-
-    if (!pickPhysicalDevice()) {
-        LOG(ERR) << "Physical device is not picked.\n";
-        return false;
-    }
-    LOG(INFO) << "Physical device picked.\n";
-
-    if (!createLogicalDevice()) {
-        LOG(ERR) << "Logical Device is not created.\n";
-        return false;
-    }
-    LOG(INFO) << "Logical Device created.\n";
-
-    if (!createSwapChain()) {
-        LOG(ERR) << "SwapChain is not created.\n";
-        return false;
-    }
-    LOG(INFO) << "SwapChain created.\n";
-
-    if (!createImageViews()) {
-        LOG(ERR) << "ImageViews are not created.\n";
-        return false;
-    }
-    LOG(INFO) << "ImageViews created.\n";
-
-    if (!createGraphicsPipeline()) {
-        LOG(ERR) << "Graphics Pipeline is not created.\n";
-        return false;
-    }
-    LOG(INFO) << "Graphics Pipeline created.\n";
-
-    if (!createCommandPool()) {
-        LOG(ERR) << "Command Pool is not created.\n";
-        return false;
-    }
-
-    if (!createCommandBuffer()) {
-        LOG(ERR) << "Command Buffer is not created.\n";
-        return false;
-    }
-    LOG(INFO) << "Command Buffer created.\n";
-
-    if (!createSyncObjects()) {
-        LOG(ERR) << "Sync Objects are not created.\n";
-        return false;
-    }
-    LOG(INFO) << "Sync Objects created.\n";
+              << kEnableValidationLayers << "\n"
+              << "More debugging:" << kMoreLogs << "\n";
+    createVKInstance();
+    setupDebugMessenger();
+    createSurface();
+    createLogicalDevice();
+    createSwapChain();
+    createImageViews();
+    createGraphicsPipeline();
 
     LOG(INFO) << "Finished Vulkan initialization.\n";
-    return true;
-}
-
-bool MightyEngine::createSyncObjects() {
-    presentCompleteSemaphore_ =
-        logicalDevice_.createSemaphore(vk::SemaphoreCreateInfo()).value;
-
-    renderFinishedSemaphore_ =
-        logicalDevice_.createSemaphore(vk::SemaphoreCreateInfo()).value;
-    drawFence_ = logicalDevice_
-                     .createFence({.flags = vk::FenceCreateFlagBits::eSignaled})
-                     .value;
-
-    return true;
 }
 
 // At a high level, rendering a frame in Vulkan consists of a common set of
@@ -228,10 +159,11 @@ bool MightyEngine::createSyncObjects() {
 // * Record a command buffer which draws the scene onto that image
 // * Submit the recorded command buffer
 // * Present the swap chain image
-bool MightyEngine::drawFrame() {
-    auto [result, imageIndex] = swapChain_.acquireNextImage(UINT64_MAX,
-        *presentCompleteSemaphore_,
-        nullptr);
+void MightyEngine::drawFrame() {
+    auto imageIndex =
+        swapChain_
+            .acquireNextImage(UINT64_MAX, *presentCompleteSemaphore_, nullptr)
+            .value;
     recordCommandBuffer(imageIndex);
 
     logicalDevice_.resetFences(*drawFence_);
@@ -257,18 +189,12 @@ bool MightyEngine::drawFrame() {
         .swapchainCount = 1,
         .pSwapchains = &*swapChain_,
         .pImageIndices = &imageIndex};
-    result = deviceQueue_.presentKHR(presentInfoKHR);
-    switch (result) {
-        case vk::Result::eSuccess:
-            break;
-        case vk::Result::eSuboptimalKHR:
-            std::cout << "vk::Queue::presentKHR returned "
-                         "vk::Result::eSuboptimalKHR !\n";
-            break;
-        default:
-            break;  // an unexpected result is returned!
+    auto result = deviceQueue_.presentKHR(presentInfoKHR);
+
+    if (result == vk::Result::eSuboptimalKHR) {
+        LOG(WARR) << "vk::Queue::presentKHR returned "
+                     "vk::Result::eSuboptimalKHR !\n";
     }
-    return true;
 }
 
 [[nodiscard]] vk::raii::ShaderModule MightyEngine::createShaderModule(
@@ -279,90 +205,37 @@ bool MightyEngine::drawFrame() {
     return logicalDevice_.createShaderModule(createInfo).value;
 }
 
-bool MightyEngine::createCommandBuffer() {
-    vk::CommandBufferAllocateInfo allocInfo{.commandPool = commandPool_,
-        .level = vk::CommandBufferLevel::ePrimary,
-        .commandBufferCount = 1};
-    commandBuffer_ = std::move(
-        logicalDevice_.allocateCommandBuffers(allocInfo).value.front());
-    return true;
-}
-bool MightyEngine::createImageViews() {
+void MightyEngine::createImageViews() {
     vk::ImageViewCreateInfo imageViewCreateInfo{.viewType =
                                                     vk::ImageViewType::e2D,
         .format = swapChainSurfaceFormat_.format,
         .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}};
     for (auto image : swapChainImages_) {
         imageViewCreateInfo.image = image;
-        auto [result, value] =
-            logicalDevice_.createImageView(imageViewCreateInfo);
-        if (result != vk::Result::eSuccess) {
-            return false;
-        }
-        swapChainImageViews_.emplace_back(std::move(value));
+        auto imageView =
+            logicalDevice_.createImageView(imageViewCreateInfo).value;
+        swapChainImageViews_.emplace_back(std::move(imageView));
     }
-    return true;
 }
 
-bool MightyEngine::createSurface() {
+void MightyEngine::createSurface() {
     VkSurfaceKHR surface;
-    if (glfwCreateWindowSurface(*instance_, window_, nullptr, &surface) != 0) {
-        return false;
-    }
+    glfwCreateWindowSurface(*instance_, window_, nullptr, &surface);
     surface_ = vk::raii::SurfaceKHR(instance_, surface);
-
-    return true;
 }
 
-bool MightyEngine::createCommandPool() {
-    vk::CommandPoolCreateInfo poolInfo{
-        .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-        .queueFamilyIndex = graphicsIndex_};
+void MightyEngine::createSwapChain() {
+    auto surfaceCapabilities =
+        physicalDevice_.getSurfaceCapabilitiesKHR(surface_).value;
+    swapChainSurfaceFormat_ =
+        vk::SurfaceFormatKHR{.format = vk::Format::eB8G8R8A8Srgb,
+            .colorSpace = vk::ColorSpaceKHR::eSrgbNonlinear};
+    swapChainExtent_ = surfaceCapabilities.currentExtent;
 
-    auto [result, commandPool] = logicalDevice_.createCommandPool(poolInfo);
-    if (result != vk::Result::eSuccess) {
-        return false;
-    }
-    commandPool_ = std::move(commandPool);
-    return true;
-}
-
-bool MightyEngine::createSwapChain() {
-    auto [result, surfaceCapabilities] =
-        physicalDevice_.getSurfaceCapabilitiesKHR(surface_);
-    if (result != vk::Result::eSuccess) {
-        return false;
-    }
-    auto [surfaceResult, surfaceFormat] =
-        physicalDevice_.getSurfaceFormatsKHR(surface_);
-    if (surfaceResult != vk::Result::eSuccess) {
-        return false;
-    }
-    swapChainSurfaceFormat_ = chooseSwapSurfaceFormat(surfaceFormat);
-    swapChainExtent_ = chooseSwapExtent(window_, surfaceCapabilities);
-
-    auto minImageCount = surfaceCapabilities.minImageCount < 3
-                             ? 3
-                             : surfaceCapabilities.minImageCount;
-    minImageCount = (surfaceCapabilities.maxImageCount > 0
-                        && minImageCount > surfaceCapabilities.maxImageCount)
-                        ? surfaceCapabilities.maxImageCount
-                        : minImageCount;
-
-    uint32_t imageCount = surfaceCapabilities.minImageCount + 1;
-    if (surfaceCapabilities.maxImageCount > 0
-        && imageCount > surfaceCapabilities.maxImageCount) {
-        imageCount = surfaceCapabilities.maxImageCount;
-    }
-    auto [presentModeResult, presentMode] =
-        physicalDevice_.getSurfacePresentModesKHR(surface_);
-    if (presentModeResult != vk::Result::eSuccess) {
-        return false;
-    }
     vk::SwapchainCreateInfoKHR swapChainCreateInfo{
         .flags = vk::SwapchainCreateFlagsKHR(),
         .surface = surface_,
-        .minImageCount = minImageCount,
+        .minImageCount = surfaceCapabilities.minImageCount + 1,
         .imageFormat = swapChainSurfaceFormat_.format,
         .imageColorSpace = swapChainSurfaceFormat_.colorSpace,
         .imageExtent = swapChainExtent_,
@@ -371,39 +244,15 @@ bool MightyEngine::createSwapChain() {
         .imageSharingMode = vk::SharingMode::eExclusive,
         .preTransform = surfaceCapabilities.currentTransform,
         .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
-        .presentMode = chooseSwapPresentMode(presentMode),
+        .presentMode = vk::PresentModeKHR::eMailbox,
         .clipped = true,
         .oldSwapchain = nullptr};
 
-    uint32_t queueFamilyIndices[] = {graphicsIndex_, presentIndex_};
-
-    if (graphicsIndex_ != presentIndex_) {
-        swapChainCreateInfo.imageSharingMode = vk::SharingMode::eConcurrent;
-        swapChainCreateInfo.queueFamilyIndexCount = 2;
-        swapChainCreateInfo.pQueueFamilyIndices = queueFamilyIndices;
-
-    } else {
-        swapChainCreateInfo.imageSharingMode = vk::SharingMode::eExclusive;
-        swapChainCreateInfo.queueFamilyIndexCount = 0;      // Optional
-        swapChainCreateInfo.pQueueFamilyIndices = nullptr;  // Optional
-    }
-    auto [swapChainResult, swapChain] =
-        logicalDevice_.createSwapchainKHR(swapChainCreateInfo);
-    if (swapChainResult != vk::Result::eSuccess) {
-        return false;
-    }
-    swapChain_ = std::move(swapChain);
-
-    auto [swapChainImagesResult, swapChainImages] = swapChain_.getImages();
-    if (swapChainImagesResult != vk::Result::eSuccess) {
-        return false;
-    }
-    swapChainImages_ = swapChainImages;
-
-    return true;
+    swapChain_ = logicalDevice_.createSwapchainKHR(swapChainCreateInfo).value;
+    swapChainImages_ = swapChain_.getImages().value;
 }
 
-bool MightyEngine::createGraphicsPipeline() {
+void MightyEngine::createGraphicsPipeline() {
     vk::PipelineDynamicStateCreateInfo dynamicState{
         .dynamicStateCount = static_cast<uint32_t>(kDynamicStates.size()),
         .pDynamicStates = kDynamicStates.data()};
@@ -446,18 +295,14 @@ bool MightyEngine::createGraphicsPipeline() {
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{.setLayoutCount = 0,
         .pushConstantRangeCount = 0};
 
-    auto [graphicsPipelineLayoutResult, graphicsPipelineLayout] =
-        logicalDevice_.createPipelineLayout(pipelineLayoutInfo);
-    if (graphicsPipelineLayoutResult != vk::Result::eSuccess) {
-        return false;
-    }
-    graphicsPipelineLayout_ = std::move(graphicsPipelineLayout);
+    graphicsPipelineLayout_ =
+        logicalDevice_.createPipelineLayout(pipelineLayoutInfo).value;
     // Create shaders
     auto shaderPath = getExecutableDir() / "shaders" / "slang.spv";
     auto shaderCode = readFile(shaderPath.string());
     if (!shaderCode.has_value()) {
         LOG(ERR) << "Can't find shader file location.\n";
-        return false;
+        return;
     }
     vk::raii::ShaderModule shaderModule =
         createShaderModule(shaderCode.value());
@@ -493,66 +338,44 @@ bool MightyEngine::createGraphicsPipeline() {
         .layout = graphicsPipelineLayout_,
         .renderPass = nullptr};
 
-    auto [graphicsPipelineResult, graphicsPipeline] =
-        logicalDevice_.createGraphicsPipeline(nullptr, pipelineInfo);
-    if (graphicsPipelineResult != vk::Result::eSuccess) {
-        return false;
-    }
-    graphicsPipeline_ = std::move(graphicsPipeline);
-    return true;
+    graphicsPipeline_ =
+        logicalDevice_.createGraphicsPipeline(nullptr, pipelineInfo).value;
+
+    vk::CommandPoolCreateInfo poolInfo{
+        .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+        .queueFamilyIndex = graphicsQueueFamilyIndex_};
+    commandPool_ = logicalDevice_.createCommandPool(poolInfo).value;
+
+    vk::CommandBufferAllocateInfo allocInfo{.commandPool = commandPool_,
+        .level = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = 1};
+    commandBuffer_ = std::move(
+        logicalDevice_.allocateCommandBuffers(allocInfo).value.front());
+
+    presentCompleteSemaphore_ =
+        logicalDevice_.createSemaphore(vk::SemaphoreCreateInfo()).value;
+
+    renderFinishedSemaphore_ =
+        logicalDevice_.createSemaphore(vk::SemaphoreCreateInfo()).value;
+    drawFence_ = logicalDevice_
+                     .createFence({.flags = vk::FenceCreateFlagBits::eSignaled})
+                     .value;
 }
 
-bool MightyEngine::createLogicalDevice() {
+void MightyEngine::createLogicalDevice() {
     std::vector<vk::QueueFamilyProperties> queueFamilyProperties =
         physicalDevice_.getQueueFamilyProperties();
-    graphicsIndex_ = findQueueFamilies();
-
-    presentIndex_ =
-        physicalDevice_.getSurfaceSupportKHR(graphicsIndex_, *surface_).value
-            ? graphicsIndex_
-            : static_cast<uint32_t>(queueFamilyProperties.size());
-    if (presentIndex_ == queueFamilyProperties.size()) {
-        for (size_t i = 0; i < queueFamilyProperties.size(); i++) {
-            auto hasSupport =
-                physicalDevice_.getSurfaceSupportKHR(static_cast<uint32_t>(i),
-                    *surface_);
-            if ((queueFamilyProperties[i].queueFlags
-                    & vk::QueueFlagBits::eGraphics)
-                && hasSupport.value) {
-                graphicsIndex_ = static_cast<uint32_t>(i);
-                presentIndex_ = graphicsIndex_;
-                break;
-            }
-        }
-        if (presentIndex_ == queueFamilyProperties.size()) {
-            for (size_t i = 0; i < queueFamilyProperties.size(); i++) {
-                if (physicalDevice_
-                        .getSurfaceSupportKHR(static_cast<uint32_t>(i),
-                            *surface_)
-                        .value) {
-                    presentIndex_ = static_cast<uint32_t>(i);
-                    break;
-                }
-            }
-        }
-    }
-    if ((graphicsIndex_ == queueFamilyProperties.size())
-        || (presentIndex_ == queueFamilyProperties.size())) {
-        return false;
-    }
 
     float queuePriority = 0.0f;
-    vk::DeviceQueueCreateInfo deviceQueueCreateInfo{.queueFamilyIndex =
-                                                        graphicsIndex_,
+    vk::DeviceQueueCreateInfo deviceQueueCreateInfo{
+        .queueFamilyIndex = graphicsQueueFamilyIndex_,
         .queueCount = 1,
         .pQueuePriorities = &queuePriority};
 
     vk::StructureChain<vk::PhysicalDeviceFeatures2,
-        vk::PhysicalDeviceVulkan11Features,
         vk::PhysicalDeviceVulkan13Features,
         vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>
         featureChain = {{},
-            {.shaderDrawParameters = true},
             {.dynamicRendering = true},
             {.extendedDynamicState = true}};
     vk::DeviceCreateInfo deviceCreateInfo{
@@ -563,21 +386,16 @@ bool MightyEngine::createLogicalDevice() {
             static_cast<uint32_t>(kDeviceExtensions.size()),
         .ppEnabledExtensionNames = kDeviceExtensions.data()};
 
-    auto [result, logicalDevice] =
-        physicalDevice_.createDevice(deviceCreateInfo);
-    if (result != vk::Result::eSuccess) {
-        return false;
-    }
-    logicalDevice_ = std::move(logicalDevice);
-    deviceQueue_ = logicalDevice_.getQueue(graphicsIndex_, 0);
-    presentQueue_ = logicalDevice_.getQueue(presentIndex_, 0);
-
-    return true;
+    logicalDevice_ = physicalDevice_.createDevice(deviceCreateInfo).value;
+    deviceQueue_ = logicalDevice_.getQueue(graphicsQueueFamilyIndex_, 0);
+    presentQueue_ = logicalDevice_.getQueue(graphicsQueueFamilyIndex_, 0);
 }
 
-bool MightyEngine::setupDebugMessenger() {
+void MightyEngine::setupDebugMessenger() {
     if (!kEnableValidationLayers) {
-        return false;
+        LOG(INFO)
+            << "Debug Messenger is not initialized. No Validation Layers.\n";
+        return;
     }
 
     vk::DebugUtilsMessageSeverityFlagsEXT severityFlags(
@@ -593,69 +411,22 @@ bool MightyEngine::setupDebugMessenger() {
         .messageType = messageTypeFlags,
         .pfnUserCallback = &debugCallback};
 
-    // TODO: add result checks
-    auto [result, debugMessenger] = instance_.createDebugUtilsMessengerEXT(
-        debugUtilsMessengerCreateInfoEXT);
-    if (result != vk::Result::eSuccess) {
-        return false;
-    }
-    debugMessenger_ = std::move(debugMessenger);
-    return true;
+    debugMessenger_ =
+        instance_.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfoEXT)
+            .value;
 }
 
-bool MightyEngine::pickPhysicalDevice() {
-    vk::raii::PhysicalDevice physicalDevice = nullptr;
-    // TODO: add result checks
-    auto [result, physicalDevices] = instance_.enumeratePhysicalDevices();
-    if (result != vk::Result::eSuccess) {
-        return false;
-    }
-    if (physicalDevices.empty()) {
-        LOG(ERR) << "No Physical devices" << "\n";
-        return false;
-    }
-    if (kMoreLogs) {
-        LOG(INFO) << "Available Devices:\n";
-        for (const auto& device : physicalDevices) {
-            LOG(INFO) << device.getProperties().deviceName << "\n";
-        }
-    }
-    physicalDevice_ = std::move(physicalDevices[0]);
-    return true;
-}
-
-uint32_t MightyEngine::findQueueFamilies() {
-    std::vector<vk::QueueFamilyProperties> queueFamilyProperties =
-        physicalDevice_.getQueueFamilyProperties();
-
-    uint32_t graphicsQueueFamilyIndex = UINT32_MAX;
-
-    for (uint32_t i = 0; i < queueFamilyProperties.size(); ++i) {
-        if (queueFamilyProperties[i].queueFlags
-            & vk::QueueFlagBits::eGraphics) {
-            graphicsQueueFamilyIndex = i;
-            break;
-        }
-    }
-
-    return graphicsQueueFamilyIndex;
-}
-
-bool MightyEngine::createVKInstance() {
+void MightyEngine::createVKInstance() {
     constexpr vk::ApplicationInfo appInfo{.pApplicationName = kAppName.data(),
         .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
         .pEngineName = kAppName.data(),
         .engineVersion = VK_MAKE_VERSION(1, 0, 0),
         .apiVersion = vk::ApiVersion14};
+
     std::vector<char const*> requiredLayers;
     if (kEnableValidationLayers) {
         requiredLayers.assign(kValidationLayers.begin(),
             kValidationLayers.end());
-        auto [result, availableLayers] =
-            context_.enumerateInstanceLayerProperties();
-        if (result != vk::Result::eSuccess) {
-            return false;
-        }
     }
 
     auto extensions = getInstanceExtensions();
@@ -666,12 +437,8 @@ bool MightyEngine::createVKInstance() {
         .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
         .ppEnabledExtensionNames = extensions.data()};
 
-    auto [instance_result, instance] = context_.createInstance(createInfo);
-    if (instance_result != vk::Result::eSuccess) {
-        return false;
-    }
-    instance_ = std::move(instance);
-    return true;
+    instance_ = context_.createInstance(createInfo).value;
+    physicalDevice_ = instance_.enumeratePhysicalDevices().value[0];
 }
 
 void MightyEngine::cleanup() {

@@ -79,7 +79,6 @@ class LogStream {
         if (type_ != vk::DebugUtilsMessageTypeFlagsEXT{}) {
             out << "[" << VkLogSeverityToString(vkSeverity_) << "]" << "["
                 << LogTypeToString(type_) << "]"
-                << "[" << p.filename().string() << ":" << line_ << "] "
                 << stream_.str();
         } else {
             out << "[" << LogSeverityToString(severity_) << "]"
@@ -151,23 +150,6 @@ inline std::optional<std::vector<char>> readFile(const std::string& filename) {
     file.close();
 
     return buffer;
-}
-
-inline vk::Extent2D chooseSwapExtent(GLFWwindow* window,
-    const vk::SurfaceCapabilitiesKHR& capabilities) {
-    if (capabilities.currentExtent.width
-        != std::numeric_limits<uint32_t>::infinity()) {
-        return capabilities.currentExtent;
-    }
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-
-    return {std::clamp<uint32_t>(width,
-                capabilities.minImageExtent.width,
-                capabilities.maxImageExtent.width),
-        std::clamp<uint32_t>(height,
-            capabilities.minImageExtent.height,
-            capabilities.maxImageExtent.height)};
 }
 
 inline vk::PresentModeKHR chooseSwapPresentMode(

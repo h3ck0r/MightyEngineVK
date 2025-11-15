@@ -31,6 +31,8 @@ const std::vector<const char*> kDeviceExtensions = {
     vk::KHRSynchronization2ExtensionName,
     vk::KHRCreateRenderpass2ExtensionName,
 };
+// Everything that is mutable during graphics pipeline. Viewport and scissor are
+// mutable because we can resize window.
 const std::vector kDynamicStates = {vk::DynamicState::eViewport,
     vk::DynamicState::eScissor};
 
