@@ -5,7 +5,8 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #define STB_IMAGE_IMPLEMENTATION
 
-#include <vulkan/vulkan_raii.hpp>
+#include "engine.h"
+
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 #include <windows.h>
@@ -16,8 +17,8 @@
 #include <iostream>
 #include <limits>
 #include <ranges>
+#include <vulkan/vulkan_raii.hpp>
 
-#include "engine.h"
 #include "globals.h"
 #include "utils.h"
 
@@ -137,9 +138,7 @@ void MightyEngine::loop() {
 }
 void MightyEngine::initVK() {
     LOG(INFO) << "Initilazing " << kAppName << "\n";
-    LOG(INFO) << "Enable Validation Layers:\n"
-              << kEnableValidationLayers << "\n"
-              << "More debugging:" << kMoreLogs << "\n";
+
     createVKInstance();
     setupDebugMessenger();
     createSurface();
@@ -159,6 +158,7 @@ void MightyEngine::initVK() {
 // * Submit the recorded command buffer
 // * Present the swap chain image
 void MightyEngine::drawFrame() {
+    deviceQueue_.waitIdle();
     auto imageIndex =
         swapChain_
             .acquireNextImage(UINT64_MAX, *presentCompleteSemaphore_, nullptr)
