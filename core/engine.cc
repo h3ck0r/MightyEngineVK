@@ -5,12 +5,7 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #define STB_IMAGE_IMPLEMENTATION
 
-#if defined(__INTELLISENSE__) || !defined(USE_CPP20_MODULES)
 #include <vulkan/vulkan_raii.hpp>
-#else
-import vulkan_hpp;
-#endif
-
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 #include <windows.h>
@@ -260,6 +255,7 @@ void MightyEngine::createGraphicsPipeline() {
     vk::PipelineDynamicStateCreateInfo dynamicState{
         .dynamicStateCount = static_cast<uint32_t>(kDynamicStates.size()),
         .pDynamicStates = kDynamicStates.data()};
+
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
         .topology = vk::PrimitiveTopology::eTriangleList};

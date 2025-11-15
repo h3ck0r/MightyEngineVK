@@ -7,5 +7,4 @@ int main() {
     core::MightyEngine engine;
 
     engine.run();
-
 }
