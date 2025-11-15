@@ -26,6 +26,7 @@ class MightyEngine {
     void createGraphicsPipeline();
     void drawFrame();
     void recordCommandBuffer(uint32_t imageIndex);
+
     void transitioImageLayout(uint32_t imageIndex,
         vk::ImageLayout oldLayout,
         vk::ImageLayout newLayout,

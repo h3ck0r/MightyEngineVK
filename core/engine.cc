@@ -29,6 +29,10 @@ import vulkan_hpp;
 namespace core {
 
 void MightyEngine::recordCommandBuffer(uint32_t imageIndex) {
+    vk::CommandBufferBeginInfo beginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit};
+    commandBuffer_.begin(beginInfo);
+
     // Before starting rendering, transition the swapchain image to
     // COLOR_ATTACHMENT_OPTIMAL
     transitioImageLayout(imageIndex,
@@ -373,10 +377,12 @@ void MightyEngine::createLogicalDevice() {
         .pQueuePriorities = &queuePriority};
 
     vk::StructureChain<vk::PhysicalDeviceFeatures2,
+        vk::PhysicalDeviceVulkan11Features,
         vk::PhysicalDeviceVulkan13Features,
         vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>
         featureChain = {{},
-            {.dynamicRendering = true},
+            {.shaderDrawParameters = true},
+            {.synchronization2 = true, .dynamicRendering = true},
             {.extendedDynamicState = true}};
     vk::DeviceCreateInfo deviceCreateInfo{
         .pNext = &featureChain.get<vk::PhysicalDeviceFeatures2>(),
