@@ -121,21 +121,21 @@ void MightyEngine::run() {
 void MightyEngine::initWindow() {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+
     window_ = glfwCreateWindow(kWindowWidth,
         kWindowHeight,
         kAppName.data(),
         nullptr,
         nullptr);
-
+    glfwSetWindowUserPointer(window_, this);
+    glfwSetFramebufferSizeCallback(window_, frameBufferResizeCallback);
     setWindowIcon(window_, "assets/ICON.png");
 }
+
 void MightyEngine::loop() {
     while (!glfwWindowShouldClose(window_)) {
         glfwPollEvents();
         drawFrame();
-
-        currentFrame_ = (currentFrame_ + 1) % MAX_FRAMES_IN_FLIGHT;
     }
     logicalDevice_.waitIdle();
 }
@@ -161,16 +161,27 @@ void MightyEngine::initVK() {
 // * Submit the recorded command buffer
 // * Present the swap chain image
 void MightyEngine::drawFrame() {
-    while (vk::Result::eTimeout
-           == logicalDevice_.waitForFences(*inFlightFences_[currentFrame_],
+    if (frameBufferResized_) {
+        recreateSwapChain();
+        frameBufferResized_ = false;
+        return;
+    }
+    while (logicalDevice_.waitForFences(*inFlightFences_[currentFrame_],
                vk::True,
-               UINT64_MAX))
+               UINT64_MAX)
+           == vk::Result::eTimeout)
         ;
-    auto imageIndex = swapChain_
-                          .acquireNextImage(UINT64_MAX,
-                              *presentCompleteSemaphores_[currentFrame_],
-                              nullptr)
-                          .value;
+
+    auto [result, imageIndex] = swapChain_.acquireNextImage(UINT64_MAX,
+        *presentCompleteSemaphores_[semaphoreIndex_],
+        nullptr);
+    if (result == vk::Result::eErrorOutOfDateKHR) {
+        recreateSwapChain();
+        return;
+    } else if (result != vk::Result::eSuccess
+               && result != vk::Result::eSuboptimalKHR) {
+        return;
+    }
 
     logicalDevice_.resetFences(*inFlightFences_[currentFrame_]);
     commandBuffers_[currentFrame_].reset();
@@ -179,26 +190,28 @@ void MightyEngine::drawFrame() {
     vk::PipelineStageFlags waitDestinationStageMask(
         vk::PipelineStageFlagBits::eColorAttachmentOutput);
     const vk::SubmitInfo submitInfo{.waitSemaphoreCount = 1,
-        .pWaitSemaphores = &*presentCompleteSemaphores_[currentFrame_],
+        .pWaitSemaphores = &*presentCompleteSemaphores_[semaphoreIndex_],
         .pWaitDstStageMask = &waitDestinationStageMask,
         .commandBufferCount = 1,
         .pCommandBuffers = &*commandBuffers_[currentFrame_],
         .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &*renderFinishedSemaphores_[currentFrame_]};
+        .pSignalSemaphores = &*renderFinishedSemaphores_[imageIndex]};
 
     deviceQueue_.submit(submitInfo, inFlightFences_[currentFrame_]);
 
     const vk::PresentInfoKHR presentInfoKHR{.waitSemaphoreCount = 1,
-        .pWaitSemaphores = &*renderFinishedSemaphores_[currentFrame_],
+        .pWaitSemaphores = &*renderFinishedSemaphores_[imageIndex],
         .swapchainCount = 1,
         .pSwapchains = &*swapChain_,
         .pImageIndices = &imageIndex};
-    auto result = deviceQueue_.presentKHR(presentInfoKHR);
-
-    if (result == vk::Result::eSuboptimalKHR) {
-        LOG(WARR) << "vk::Queue::presentKHR returned "
-                     "vk::Result::eSuboptimalKHR !\n";
+    auto presentResult = deviceQueue_.presentKHR(presentInfoKHR);
+    if (presentResult == vk::Result::eErrorOutOfDateKHR
+        || presentResult == vk::Result::eSuboptimalKHR) {
+        recreateSwapChain();
     }
+
+    semaphoreIndex_ = (semaphoreIndex_ + 1) % presentCompleteSemaphores_.size();
+    currentFrame_ = (currentFrame_ + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 [[nodiscard]] vk::raii::ShaderModule MightyEngine::createShaderModule(
@@ -207,6 +220,26 @@ void MightyEngine::drawFrame() {
                                               code.size() * sizeof(char),
         .pCode = reinterpret_cast<const uint32_t*>(code.data())};
     return logicalDevice_.createShaderModule(createInfo).value;
+}
+
+void MightyEngine::recreateSwapChain() {
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(window_, &width, &height);
+    while (width == 0 || height == 0) {
+        glfwGetFramebufferSize(window_, &width, &height);
+        glfwWaitEvents();
+    }
+    logicalDevice_.waitIdle();
+
+    cleanupSwapChain();
+
+    createSwapChain();
+    createImageViews();
+}
+
+void MightyEngine::cleanupSwapChain() {
+    swapChainImageViews_.clear();
+    swapChain_ = nullptr;
 }
 
 void MightyEngine::createImageViews() {
@@ -449,6 +482,8 @@ void MightyEngine::createVKInstance() {
 }
 
 void MightyEngine::cleanup() {
+    cleanupSwapChain();
+
     glfwDestroyWindow(window_);
     glfwTerminate();
 }

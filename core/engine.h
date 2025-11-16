@@ -12,19 +12,24 @@ class MightyEngine {
     void run();
     MightyEngine();
 
-   private:
     void loop();
     void cleanup();
     void initWindow();
+
     void initVK();
-    void createSurface();
     void createVKInstance();
+
+    void createSurface();
     void setupDebugMessenger();
     void createLogicalDevice();
+
     void createSwapChain();
+    void recreateSwapChain();
     void createImageViews();
-    void createGraphicsPipeline();
+    void cleanupSwapChain();
+
     void drawFrame();
+    void createGraphicsPipeline();
     void recordCommandBuffer(uint32_t imageIndex);
 
     void transitioImageLayout(uint32_t imageIndex,
@@ -62,7 +67,10 @@ class MightyEngine {
     std::vector<vk::raii::Semaphore> presentCompleteSemaphores_;
     std::vector<vk::raii::Semaphore> renderFinishedSemaphores_;
     std::vector<vk::raii::Fence> inFlightFences_;
+
     uint32_t currentFrame_ = 0;
+    uint32_t semaphoreIndex_ = 0;
+    bool frameBufferResized_ = false;
 
     GLFWwindow* window_;
 };

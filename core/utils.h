@@ -78,8 +78,7 @@ class LogStream {
         std::filesystem::path p(file_);
         if (type_ != vk::DebugUtilsMessageTypeFlagsEXT{}) {
             out << "[" << VkLogSeverityToString(vkSeverity_) << "]" << "["
-                << LogTypeToString(type_) << "]"
-                << stream_.str();
+                << LogTypeToString(type_) << "]" << stream_.str();
         } else {
             out << "[" << LogSeverityToString(severity_) << "]"
                 << "[" << p.filename().string() << ":" << line_ << "] "
@@ -127,6 +126,14 @@ inline std::filesystem::path getExecutableDir() {
     GetModuleFileNameA(nullptr, buffer, MAX_PATH);
     std::filesystem::path exePath(buffer);
     return exePath.parent_path();
+}
+
+static void frameBufferResizeCallback(GLFWwindow* window,
+    int width,
+    int height) {
+    auto app = reinterpret_cast<MightyEngine*>(
+        glfwGetWindowUserPointer(window));
+    app->frameBufferResized_ = true;
 }
 
 inline VKAPI_ATTR vk::Bool32 VKAPI_CALL
