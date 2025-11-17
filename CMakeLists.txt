@@ -8,6 +8,11 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
+# Force the executable output to be in the $<CONFIG> subdirectory
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>")
+
 set(SLANGC_EXECUTABLE "C:/VulkanSDK/1.4.328.1/bin/slangc.exe")
 set(SHADER_FILE ${CMAKE_CURRENT_SOURCE_DIR}/core/shaders/shader.slang)
 set(SHADERS_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/shaders")
@@ -21,7 +26,7 @@ add_custom_target(CompileShaders ALL
         -fvk-use-entrypoint-name
         -entry vertMain -entry fragMain
         -o ${SHADERS_OUT_DIR}/slang.spv
-    COMMENT "Compiling Slang shader!!!!"
+    COMMENT "Compiling Slang shaders!!!!"
     VERBATIM
 )
 

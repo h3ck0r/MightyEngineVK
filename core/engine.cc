@@ -4,6 +4,11 @@
 #define GLFW_INCLUDE_VULKAN
 #define GLFW_EXPOSE_NATIVE_WIN32
 #define STB_IMAGE_IMPLEMENTATION
+#if defined(__INTELLISENSE__) || !defined(USE_CPP20_MODULES)
+#	include <vulkan/vulkan_raii.hpp>
+#else
+import vulkan_hpp;
+#endif
 
 #include "engine.h"
 
@@ -11,18 +16,20 @@
 #include <GLFW/glfw3native.h>
 #include <windows.h>
 
-#include <algorithm>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <limits>
-#include <ranges>
-#include <vulkan/vulkan_raii.hpp>
+#include <glm/glm.hpp>
 
 #include "globals.h"
 #include "utils.h"
 
 namespace core {
+
+static void frameBufferResizeCallback(GLFWwindow* window,
+    int width,
+    int height) {
+    auto app =
+        reinterpret_cast<MightyEngine*>(glfwGetWindowUserPointer(window));
+    app->frameBufferResized_ = true;
+}
 
 void MightyEngine::recordCommandBuffer(uint32_t imageIndex) {
     vk::CommandBufferBeginInfo beginInfo{

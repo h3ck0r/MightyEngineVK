@@ -3,6 +3,8 @@
 
 #include <GLFW/glfw3.h>
 
+#include <cstdint>
+#include <glm/glm.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
 namespace core {

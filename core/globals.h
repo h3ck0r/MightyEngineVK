@@ -2,10 +2,7 @@
 #define GLOBALS_
 
 #include <cstdint>
-#include <filesystem>
-#include <iostream>
-#include <sstream>
-#include <string>
+#include <vulkan/vulkan_raii.hpp>
 
 namespace core {
 

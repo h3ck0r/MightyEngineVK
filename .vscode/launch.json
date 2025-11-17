@@ -7,8 +7,8 @@
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
             "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
+            "cwd": "${workspaceFolder}/out/build/Clang MS/Debug",
+            "console": "externalTerminal",
         }
     ]
 }

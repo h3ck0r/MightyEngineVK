@@ -1,14 +1,13 @@
+#include <iostream>
 #define VULKAN_HPP_NO_CONSTRUCTORS
 #define VULKAN_HPP_NO_EXCEPTIONS
 
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
-
-#include <algorithm>
+#include <windows.h>
+#include <glm/glm.hpp>
 #include <filesystem>
 #include <fstream>
-#include <limits>
-#include <numeric>
 #include <optional>
 #include <string>
 #include <vector>
@@ -23,6 +22,15 @@ using enum vk::DebugUtilsMessageSeverityFlagBitsEXT;
 #define LOG(severity)          LogStream(severity, __FILE__, __LINE__)
 #define LOG_VK(severity, type) LogStream(severity, type, __FILE__, __LINE__)
 enum LogType { INFO, ERR, WARR };
+
+struct Vertex {
+    glm::vec2 pos;
+    glm::vec3 color;
+};
+
+static vk::VertexInputBindingDescription getBindingDescription() {
+    return {0, sizeof(Vertex), vk::VertexInputRate::eVertex};
+}
 
 inline const char* VkLogSeverityToString(
     vk::DebugUtilsMessageSeverityFlagBitsEXT severity) {
@@ -126,14 +134,6 @@ inline std::filesystem::path getExecutableDir() {
     GetModuleFileNameA(nullptr, buffer, MAX_PATH);
     std::filesystem::path exePath(buffer);
     return exePath.parent_path();
-}
-
-static void frameBufferResizeCallback(GLFWwindow* window,
-    int width,
-    int height) {
-    auto app = reinterpret_cast<MightyEngine*>(
-        glfwGetWindowUserPointer(window));
-    app->frameBufferResized_ = true;
 }
 
 inline VKAPI_ATTR vk::Bool32 VKAPI_CALL
