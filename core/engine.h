@@ -5,7 +5,10 @@
 
 #include <cstdint>
 #include <glm/glm.hpp>
+#include <vector>
 #include <vulkan/vulkan_raii.hpp>
+
+#include "utils.h"
 
 namespace core {
 
@@ -33,6 +36,10 @@ class MightyEngine {
     void drawFrame();
     void createGraphicsPipeline();
     void recordCommandBuffer(uint32_t imageIndex);
+
+    void createVertexBuffer();
+    uint32_t findMemoryType(uint32_t typeFilter,
+        vk::MemoryPropertyFlags properties);
 
     void transitioImageLayout(uint32_t imageIndex,
         vk::ImageLayout oldLayout,
@@ -65,6 +72,9 @@ class MightyEngine {
 
     vk::raii::CommandPool commandPool_ = nullptr;
     std::vector<vk::raii::CommandBuffer> commandBuffers_;
+
+    vk::raii::Buffer vertexBuffer_ = nullptr;
+    vk::raii::DeviceMemory vertexBufferMemory = nullptr;
 
     std::vector<vk::raii::Semaphore> presentCompleteSemaphores_;
     std::vector<vk::raii::Semaphore> renderFinishedSemaphores_;

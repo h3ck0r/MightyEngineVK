@@ -21,6 +21,9 @@ import vulkan_hpp;
 #include "utils.h"
 
 namespace core {
+const std::vector<Vertex> vertices = {{{0.0f, -0.5f}, {1.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
 
 static void frameBufferResizeCallback(GLFWwindow* window,
     int width,
@@ -74,6 +77,7 @@ void MightyEngine::recordCommandBuffer(uint32_t imageIndex) {
             1.0f));
     currentCommandBuffer->setScissor(0,
         vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent_));
+    currentCommandBuffer->bindVertexBuffers(0, *vertexBuffer_, {0});
     currentCommandBuffer->draw(3, 1, 0, 0);
     currentCommandBuffer->endRendering();
 
@@ -155,6 +159,7 @@ void MightyEngine::initVK() {
     createSwapChain();
     createImageViews();
     createGraphicsPipeline();
+    createVertexBuffer();
 
     LOG(INFO) << "Finished Vulkan initialization.\n";
 }
@@ -295,12 +300,56 @@ void MightyEngine::createSwapChain() {
     swapChainImages_ = swapChain_.getImages().value;
 }
 
+uint32_t MightyEngine::findMemoryType(uint32_t typeFilter,
+    vk::MemoryPropertyFlags properties) {
+    vk::PhysicalDeviceMemoryProperties memProperties =
+        physicalDevice_.getMemoryProperties();
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter & (1 << i))
+            && (memProperties.memoryTypes[i].propertyFlags & properties)
+                   == properties) {
+            return i;
+        }
+    }
+}
+
+void MightyEngine::createVertexBuffer() {
+    vk::BufferCreateInfo bufferInfo{.size =
+                                        sizeof(vertices[0]) * vertices.size(),
+        .usage = vk::BufferUsageFlagBits::eVertexBuffer,
+        .sharingMode = vk::SharingMode::eExclusive};
+
+    vertexBuffer_ = logicalDevice_.createBuffer(bufferInfo).value;
+    vk::MemoryRequirements memRequirements =
+        vertexBuffer_.getMemoryRequirements();
+    vk::MemoryAllocateInfo memoryAllocateInfo{.allocationSize =
+                                                  memRequirements.size,
+        .memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits,
+            vk::MemoryPropertyFlagBits::eHostVisible
+                | vk::MemoryPropertyFlagBits::eHostCoherent)};
+    vertexBufferMemory =
+        logicalDevice_.allocateMemory(memoryAllocateInfo).value;
+    vertexBuffer_.bindMemory(*vertexBufferMemory, 0);
+
+    void* data = vertexBufferMemory.mapMemory(0, bufferInfo.size).value;
+    memcpy(data, vertices.data(), bufferInfo.size);
+    vertexBufferMemory.unmapMemory();
+}
+
 void MightyEngine::createGraphicsPipeline() {
     vk::PipelineDynamicStateCreateInfo dynamicState{
         .dynamicStateCount = static_cast<uint32_t>(kDynamicStates.size()),
         .pDynamicStates = kDynamicStates.data()};
 
-    vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
+    auto bindingDescription = getBindingDescription();
+    auto attributeDescriptions = getAttributeDescriptor();
+    vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
+        .vertexBindingDescriptionCount = 1,
+        .pVertexBindingDescriptions = &bindingDescription,
+        .vertexAttributeDescriptionCount = attributeDescriptions.size(),
+        .pVertexAttributeDescriptions = attributeDescriptions.data()};
+
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
         .topology = vk::PrimitiveTopology::eTriangleList};
     vk::PipelineViewportStateCreateInfo viewportState{.viewportCount = 1,

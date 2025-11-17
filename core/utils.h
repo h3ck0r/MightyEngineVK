@@ -33,11 +33,11 @@ struct Vertex {
     glm::vec3 color;
 };
 
-static vk::VertexInputBindingDescription getBindingDescription() {
+inline vk::VertexInputBindingDescription getBindingDescription() {
     return {0, sizeof(Vertex), vk::VertexInputRate::eVertex};
 }
 
-static std::array<vk::VertexInputAttributeDescription, 2>
+inline std::array<vk::VertexInputAttributeDescription, 2>
     getAttributeDescriptor() {
     return {vk::VertexInputAttributeDescription(0,
                 0,
