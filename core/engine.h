@@ -8,8 +8,6 @@
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
-#include "utils.h"
-
 namespace core {
 
 class MightyEngine {
@@ -51,40 +49,40 @@ class MightyEngine {
     [[nodiscard]] vk::raii::ShaderModule createShaderModule(
         const std::vector<char>& code) const;
 
-    vk::raii::Device logicalDevice_ = nullptr;
-    vk::raii::PhysicalDevice physicalDevice_ = nullptr;
-    vk::raii::DebugUtilsMessengerEXT debugMessenger_ = nullptr;
-    vk::raii::Instance instance_ = nullptr;
-    vk::raii::SurfaceKHR surface_ = nullptr;
-    vk::raii::Context context_;
+    vk::raii::Device device = nullptr;
+    vk::raii::PhysicalDevice physicalDevice = nullptr;
+    vk::raii::DebugUtilsMessengerEXT debugMessenger = nullptr;
+    vk::raii::Instance instance = nullptr;
+    vk::raii::SurfaceKHR surface = nullptr;
+    vk::raii::Context context;
 
-    vk::raii::Queue deviceQueue_ = nullptr;
-    vk::raii::Queue presentQueue_ = nullptr;
-    uint32_t graphicsQueueFamilyIndex_ = 0;
+    vk::raii::Queue deviceQueue = nullptr;
+    vk::raii::Queue presentQueue = nullptr;
+    uint32_t graphicsQueueFamilyIndex = 0;
 
-    vk::raii::SwapchainKHR swapChain_ = nullptr;
-    std::vector<vk::Image> swapChainImages_;
-    std::vector<vk::raii::ImageView> swapChainImageViews_;
-    vk::Extent2D swapChainExtent_;
-    vk::SurfaceFormatKHR swapChainSurfaceFormat_;
-    vk::raii::PipelineLayout graphicsPipelineLayout_ = nullptr;
-    vk::raii::Pipeline graphicsPipeline_ = nullptr;
+    vk::raii::SwapchainKHR swapChain = nullptr;
+    std::vector<vk::Image> swapChainImages;
+    std::vector<vk::raii::ImageView> swapChainImageViews;
+    vk::Extent2D swapChainExtent;
+    vk::SurfaceFormatKHR swapChainSurfaceFormat;
+    vk::raii::PipelineLayout graphicsPipelineLayout = nullptr;
+    vk::raii::Pipeline graphicsPipeline = nullptr;
 
-    vk::raii::CommandPool commandPool_ = nullptr;
-    std::vector<vk::raii::CommandBuffer> commandBuffers_;
+    vk::raii::CommandPool commandPool = nullptr;
+    std::vector<vk::raii::CommandBuffer> commandBuffers;
 
-    vk::raii::Buffer vertexBuffer_ = nullptr;
+    vk::raii::Buffer vertexBuffer = nullptr;
     vk::raii::DeviceMemory vertexBufferMemory = nullptr;
 
-    std::vector<vk::raii::Semaphore> presentCompleteSemaphores_;
-    std::vector<vk::raii::Semaphore> renderFinishedSemaphores_;
-    std::vector<vk::raii::Fence> inFlightFences_;
+    std::vector<vk::raii::Semaphore> presentCompleteSemaphores;
+    std::vector<vk::raii::Semaphore> renderFinishedSemaphores;
+    std::vector<vk::raii::Fence> inFlightFences;
 
-    uint32_t currentFrame_ = 0;
-    uint32_t semaphoreIndex_ = 0;
-    bool frameBufferResized_ = false;
+    uint32_t currentFrame = 0;
+    uint32_t semaphoreIndex = 0;
+    bool frameBufferResized = false;
 
-    GLFWwindow* window_;
+    GLFWwindow* window;
 };
 
 }  // namespace core

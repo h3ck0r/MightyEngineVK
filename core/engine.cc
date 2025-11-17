@@ -30,13 +30,13 @@ static void frameBufferResizeCallback(GLFWwindow* window,
     int height) {
     auto app =
         reinterpret_cast<MightyEngine*>(glfwGetWindowUserPointer(window));
-    app->frameBufferResized_ = true;
+    app->frameBufferResized = true;
 }
 
 void MightyEngine::recordCommandBuffer(uint32_t imageIndex) {
     vk::CommandBufferBeginInfo beginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit};
-    auto currentCommandBuffer = &commandBuffers_[currentFrame_];
+    auto currentCommandBuffer = &commandBuffers[currentFrame];
     currentCommandBuffer->begin(beginInfo);
 
     // Before starting rendering, transition the swapchain image to
@@ -53,31 +53,31 @@ void MightyEngine::recordCommandBuffer(uint32_t imageIndex) {
     vk::ClearColorValue clearColor(
         std::array<float, 4>({0.0f, 0.0f, 0.0f, 1.0f}));
     vk::RenderingAttachmentInfo attachmentInfo = {
-        .imageView = swapChainImageViews_[imageIndex],
+        .imageView = swapChainImageViews[imageIndex],
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
         .clearValue = {clearColor}};
 
     vk::RenderingInfo renderingInfo = {.renderArea = {.offset = {0, 0},
-                                           .extent = swapChainExtent_},
+                                           .extent = swapChainExtent},
         .layerCount = 1,
         .colorAttachmentCount = 1,
         .pColorAttachments = &attachmentInfo};
 
     currentCommandBuffer->beginRendering(renderingInfo);
     currentCommandBuffer->bindPipeline(vk::PipelineBindPoint::eGraphics,
-        graphicsPipeline_);
+        graphicsPipeline);
     currentCommandBuffer->setViewport(0,
         vk::Viewport(0.0f,
             0.0f,
-            static_cast<float>(swapChainExtent_.width),
-            static_cast<float>(swapChainExtent_.height),
+            static_cast<float>(swapChainExtent.width),
+            static_cast<float>(swapChainExtent.height),
             0.0f,
             1.0f));
     currentCommandBuffer->setScissor(0,
-        vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent_));
-    currentCommandBuffer->bindVertexBuffers(0, *vertexBuffer_, {0});
+        vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent));
+    currentCommandBuffer->bindVertexBuffers(0, *vertexBuffer, {0});
     currentCommandBuffer->draw(3, 1, 0, 0);
     currentCommandBuffer->endRendering();
 
@@ -107,7 +107,7 @@ void MightyEngine::transitioImageLayout(uint32_t imageIndex,
         .newLayout = newLayout,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = swapChainImages_[imageIndex],
+        .image = swapChainImages[imageIndex],
         .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor,
             .baseMipLevel = 0,
             .levelCount = 1,
@@ -116,7 +116,7 @@ void MightyEngine::transitioImageLayout(uint32_t imageIndex,
     vk::DependencyInfo dependencyInfo = {.dependencyFlags = {},
         .imageMemoryBarrierCount = 1,
         .pImageMemoryBarriers = &barrier};
-    commandBuffers_[currentFrame_].pipelineBarrier2(dependencyInfo);
+    commandBuffers[currentFrame].pipelineBarrier2(dependencyInfo);
 }
 
 MightyEngine::MightyEngine() {}
@@ -132,22 +132,22 @@ void MightyEngine::initWindow() {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    window_ = glfwCreateWindow(kWindowWidth,
+    window = glfwCreateWindow(kWindowWidth,
         kWindowHeight,
         kAppName.data(),
         nullptr,
         nullptr);
-    glfwSetWindowUserPointer(window_, this);
-    glfwSetFramebufferSizeCallback(window_, frameBufferResizeCallback);
-    setWindowIcon(window_, "assets/ICON.png");
+    glfwSetWindowUserPointer(window, this);
+    glfwSetFramebufferSizeCallback(window, frameBufferResizeCallback);
+    setWindowIcon(window, "assets/ICON.png");
 }
 
 void MightyEngine::loop() {
-    while (!glfwWindowShouldClose(window_)) {
+    while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         drawFrame();
     }
-    logicalDevice_.waitIdle();
+    device.waitIdle();
 }
 void MightyEngine::initVK() {
     LOG(INFO) << "Initilazing " << kAppName << "\n";
@@ -172,19 +172,19 @@ void MightyEngine::initVK() {
 // * Submit the recorded command buffer
 // * Present the swap chain image
 void MightyEngine::drawFrame() {
-    if (frameBufferResized_) {
+    if (frameBufferResized) {
         recreateSwapChain();
-        frameBufferResized_ = false;
+        frameBufferResized = false;
         return;
     }
-    while (logicalDevice_.waitForFences(*inFlightFences_[currentFrame_],
+    while (device.waitForFences(*inFlightFences[currentFrame],
                vk::True,
                UINT64_MAX)
            == vk::Result::eTimeout)
         ;
 
-    auto [result, imageIndex] = swapChain_.acquireNextImage(UINT64_MAX,
-        *presentCompleteSemaphores_[semaphoreIndex_],
+    auto [result, imageIndex] = swapChain.acquireNextImage(UINT64_MAX,
+        *presentCompleteSemaphores[semaphoreIndex],
         nullptr);
     if (result == vk::Result::eErrorOutOfDateKHR) {
         recreateSwapChain();
@@ -194,35 +194,35 @@ void MightyEngine::drawFrame() {
         return;
     }
 
-    logicalDevice_.resetFences(*inFlightFences_[currentFrame_]);
-    commandBuffers_[currentFrame_].reset();
+    device.resetFences(*inFlightFences[currentFrame]);
+    commandBuffers[currentFrame].reset();
     recordCommandBuffer(imageIndex);
 
     vk::PipelineStageFlags waitDestinationStageMask(
         vk::PipelineStageFlagBits::eColorAttachmentOutput);
     const vk::SubmitInfo submitInfo{.waitSemaphoreCount = 1,
-        .pWaitSemaphores = &*presentCompleteSemaphores_[semaphoreIndex_],
+        .pWaitSemaphores = &*presentCompleteSemaphores[semaphoreIndex],
         .pWaitDstStageMask = &waitDestinationStageMask,
         .commandBufferCount = 1,
-        .pCommandBuffers = &*commandBuffers_[currentFrame_],
+        .pCommandBuffers = &*commandBuffers[currentFrame],
         .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &*renderFinishedSemaphores_[imageIndex]};
+        .pSignalSemaphores = &*renderFinishedSemaphores[imageIndex]};
 
-    deviceQueue_.submit(submitInfo, inFlightFences_[currentFrame_]);
+    deviceQueue.submit(submitInfo, inFlightFences[currentFrame]);
 
     const vk::PresentInfoKHR presentInfoKHR{.waitSemaphoreCount = 1,
-        .pWaitSemaphores = &*renderFinishedSemaphores_[imageIndex],
+        .pWaitSemaphores = &*renderFinishedSemaphores[imageIndex],
         .swapchainCount = 1,
-        .pSwapchains = &*swapChain_,
+        .pSwapchains = &*swapChain,
         .pImageIndices = &imageIndex};
-    auto presentResult = deviceQueue_.presentKHR(presentInfoKHR);
+    auto presentResult = deviceQueue.presentKHR(presentInfoKHR);
     if (presentResult == vk::Result::eErrorOutOfDateKHR
         || presentResult == vk::Result::eSuboptimalKHR) {
         recreateSwapChain();
     }
 
-    semaphoreIndex_ = (semaphoreIndex_ + 1) % presentCompleteSemaphores_.size();
-    currentFrame_ = (currentFrame_ + 1) % MAX_FRAMES_IN_FLIGHT;
+    semaphoreIndex = (semaphoreIndex + 1) % presentCompleteSemaphores.size();
+    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 [[nodiscard]] vk::raii::ShaderModule MightyEngine::createShaderModule(
@@ -230,17 +230,17 @@ void MightyEngine::drawFrame() {
     vk::ShaderModuleCreateInfo createInfo{.codeSize =
                                               code.size() * sizeof(char),
         .pCode = reinterpret_cast<const uint32_t*>(code.data())};
-    return logicalDevice_.createShaderModule(createInfo).value;
+    return device.createShaderModule(createInfo).value;
 }
 
 void MightyEngine::recreateSwapChain() {
     int width = 0, height = 0;
-    glfwGetFramebufferSize(window_, &width, &height);
+    glfwGetFramebufferSize(window, &width, &height);
     while (width == 0 || height == 0) {
-        glfwGetFramebufferSize(window_, &width, &height);
+        glfwGetFramebufferSize(window, &width, &height);
         glfwWaitEvents();
     }
-    logicalDevice_.waitIdle();
+    device.waitIdle();
 
     cleanupSwapChain();
 
@@ -249,44 +249,43 @@ void MightyEngine::recreateSwapChain() {
 }
 
 void MightyEngine::cleanupSwapChain() {
-    swapChainImageViews_.clear();
-    swapChain_ = nullptr;
+    swapChainImageViews.clear();
+    swapChain = nullptr;
 }
 
 void MightyEngine::createImageViews() {
     vk::ImageViewCreateInfo imageViewCreateInfo{.viewType =
                                                     vk::ImageViewType::e2D,
-        .format = swapChainSurfaceFormat_.format,
+        .format = swapChainSurfaceFormat.format,
         .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}};
-    for (auto image : swapChainImages_) {
+    for (auto image : swapChainImages) {
         imageViewCreateInfo.image = image;
-        auto imageView =
-            logicalDevice_.createImageView(imageViewCreateInfo).value;
-        swapChainImageViews_.emplace_back(std::move(imageView));
+        auto imageView = device.createImageView(imageViewCreateInfo).value;
+        swapChainImageViews.emplace_back(std::move(imageView));
     }
 }
 
 void MightyEngine::createSurface() {
-    VkSurfaceKHR surface;
-    glfwCreateWindowSurface(*instance_, window_, nullptr, &surface);
-    surface_ = vk::raii::SurfaceKHR(instance_, surface);
+    VkSurfaceKHR newSurface;
+    glfwCreateWindowSurface(*instance, window, nullptr, &newSurface);
+    surface = vk::raii::SurfaceKHR(instance, newSurface);
 }
 
 void MightyEngine::createSwapChain() {
     auto surfaceCapabilities =
-        physicalDevice_.getSurfaceCapabilitiesKHR(surface_).value;
-    swapChainSurfaceFormat_ =
+        physicalDevice.getSurfaceCapabilitiesKHR(surface).value;
+    swapChainSurfaceFormat =
         vk::SurfaceFormatKHR{.format = vk::Format::eB8G8R8A8Srgb,
             .colorSpace = vk::ColorSpaceKHR::eSrgbNonlinear};
-    swapChainExtent_ = surfaceCapabilities.currentExtent;
+    swapChainExtent = surfaceCapabilities.currentExtent;
 
     vk::SwapchainCreateInfoKHR swapChainCreateInfo{
         .flags = vk::SwapchainCreateFlagsKHR(),
-        .surface = surface_,
+        .surface = surface,
         .minImageCount = MAX_FRAMES_IN_FLIGHT,
-        .imageFormat = swapChainSurfaceFormat_.format,
-        .imageColorSpace = swapChainSurfaceFormat_.colorSpace,
-        .imageExtent = swapChainExtent_,
+        .imageFormat = swapChainSurfaceFormat.format,
+        .imageColorSpace = swapChainSurfaceFormat.colorSpace,
+        .imageExtent = swapChainExtent,
         .imageArrayLayers = 1,
         .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
         .imageSharingMode = vk::SharingMode::eExclusive,
@@ -296,14 +295,14 @@ void MightyEngine::createSwapChain() {
         .clipped = true,
         .oldSwapchain = nullptr};
 
-    swapChain_ = logicalDevice_.createSwapchainKHR(swapChainCreateInfo).value;
-    swapChainImages_ = swapChain_.getImages().value;
+    swapChain = device.createSwapchainKHR(swapChainCreateInfo).value;
+    swapChainImages = swapChain.getImages().value;
 }
 
 uint32_t MightyEngine::findMemoryType(uint32_t typeFilter,
     vk::MemoryPropertyFlags properties) {
     vk::PhysicalDeviceMemoryProperties memProperties =
-        physicalDevice_.getMemoryProperties();
+        physicalDevice.getMemoryProperties();
 
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
         if ((typeFilter & (1 << i))
@@ -312,6 +311,7 @@ uint32_t MightyEngine::findMemoryType(uint32_t typeFilter,
             return i;
         }
     }
+    return -1;
 }
 
 void MightyEngine::createVertexBuffer() {
@@ -320,17 +320,16 @@ void MightyEngine::createVertexBuffer() {
         .usage = vk::BufferUsageFlagBits::eVertexBuffer,
         .sharingMode = vk::SharingMode::eExclusive};
 
-    vertexBuffer_ = logicalDevice_.createBuffer(bufferInfo).value;
+    vertexBuffer = device.createBuffer(bufferInfo).value;
     vk::MemoryRequirements memRequirements =
-        vertexBuffer_.getMemoryRequirements();
+        vertexBuffer.getMemoryRequirements();
     vk::MemoryAllocateInfo memoryAllocateInfo{.allocationSize =
                                                   memRequirements.size,
         .memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits,
             vk::MemoryPropertyFlagBits::eHostVisible
                 | vk::MemoryPropertyFlagBits::eHostCoherent)};
-    vertexBufferMemory =
-        logicalDevice_.allocateMemory(memoryAllocateInfo).value;
-    vertexBuffer_.bindMemory(*vertexBufferMemory, 0);
+    vertexBufferMemory = device.allocateMemory(memoryAllocateInfo).value;
+    vertexBuffer.bindMemory(*vertexBufferMemory, 0);
 
     void* data = vertexBufferMemory.mapMemory(0, bufferInfo.size).value;
     memcpy(data, vertices.data(), bufferInfo.size);
@@ -388,8 +387,8 @@ void MightyEngine::createGraphicsPipeline() {
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{.setLayoutCount = 0,
         .pushConstantRangeCount = 0};
 
-    graphicsPipelineLayout_ =
-        logicalDevice_.createPipelineLayout(pipelineLayoutInfo).value;
+    graphicsPipelineLayout =
+        device.createPipelineLayout(pipelineLayoutInfo).value;
     // Create shaders
     auto shaderPath = getExecutableDir() / "shaders" / "slang.spv";
     auto shaderCode = readFile(shaderPath.string());
@@ -416,7 +415,7 @@ void MightyEngine::createGraphicsPipeline() {
 
     vk::PipelineRenderingCreateInfo pipelineRenderingCreateInfo{
         .colorAttachmentCount = 1,
-        .pColorAttachmentFormats = &swapChainSurfaceFormat_.format};
+        .pColorAttachmentFormats = &swapChainSurfaceFormat.format};
     vk::GraphicsPipelineCreateInfo pipelineInfo{
         .pNext = &pipelineRenderingCreateInfo,
         .stageCount = 2,
@@ -428,40 +427,40 @@ void MightyEngine::createGraphicsPipeline() {
         .pMultisampleState = &multisampling,
         .pColorBlendState = &colorBlending,
         .pDynamicState = &dynamicState,
-        .layout = graphicsPipelineLayout_,
+        .layout = graphicsPipelineLayout,
         .renderPass = nullptr};
 
-    graphicsPipeline_ =
-        logicalDevice_.createGraphicsPipeline(nullptr, pipelineInfo).value;
+    graphicsPipeline =
+        device.createGraphicsPipeline(nullptr, pipelineInfo).value;
 
     vk::CommandPoolCreateInfo poolInfo{
         .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-        .queueFamilyIndex = graphicsQueueFamilyIndex_};
-    commandPool_ = logicalDevice_.createCommandPool(poolInfo).value;
+        .queueFamilyIndex = graphicsQueueFamilyIndex};
+    commandPool = device.createCommandPool(poolInfo).value;
 
-    vk::CommandBufferAllocateInfo allocInfo{.commandPool = commandPool_,
+    vk::CommandBufferAllocateInfo allocInfo{.commandPool = commandPool,
         .level = vk::CommandBufferLevel::ePrimary,
         .commandBufferCount = MAX_FRAMES_IN_FLIGHT};
-    commandBuffers_ = logicalDevice_.allocateCommandBuffers(allocInfo).value;
+    commandBuffers = device.allocateCommandBuffers(allocInfo).value;
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        presentCompleteSemaphores_.emplace_back(
-            logicalDevice_.createSemaphore(vk::SemaphoreCreateInfo()).value);
-        renderFinishedSemaphores_.emplace_back(
-            logicalDevice_.createSemaphore(vk::SemaphoreCreateInfo()).value);
-        inFlightFences_.emplace_back(logicalDevice_
-                .createFence({.flags = vk::FenceCreateFlagBits::eSignaled})
+        presentCompleteSemaphores.emplace_back(
+            device.createSemaphore(vk::SemaphoreCreateInfo()).value);
+        renderFinishedSemaphores.emplace_back(
+            device.createSemaphore(vk::SemaphoreCreateInfo()).value);
+        inFlightFences.emplace_back(
+            device.createFence({.flags = vk::FenceCreateFlagBits::eSignaled})
                 .value);
     }
 }
 
 void MightyEngine::createLogicalDevice() {
     std::vector<vk::QueueFamilyProperties> queueFamilyProperties =
-        physicalDevice_.getQueueFamilyProperties();
+        physicalDevice.getQueueFamilyProperties();
 
     float queuePriority = 0.0f;
     vk::DeviceQueueCreateInfo deviceQueueCreateInfo{
-        .queueFamilyIndex = graphicsQueueFamilyIndex_,
+        .queueFamilyIndex = graphicsQueueFamilyIndex,
         .queueCount = 1,
         .pQueuePriorities = &queuePriority};
 
@@ -481,9 +480,9 @@ void MightyEngine::createLogicalDevice() {
             static_cast<uint32_t>(kDeviceExtensions.size()),
         .ppEnabledExtensionNames = kDeviceExtensions.data()};
 
-    logicalDevice_ = physicalDevice_.createDevice(deviceCreateInfo).value;
-    deviceQueue_ = logicalDevice_.getQueue(graphicsQueueFamilyIndex_, 0);
-    presentQueue_ = logicalDevice_.getQueue(graphicsQueueFamilyIndex_, 0);
+    device = physicalDevice.createDevice(deviceCreateInfo).value;
+    deviceQueue = device.getQueue(graphicsQueueFamilyIndex, 0);
+    presentQueue = device.getQueue(graphicsQueueFamilyIndex, 0);
 }
 
 void MightyEngine::setupDebugMessenger() {
@@ -506,8 +505,8 @@ void MightyEngine::setupDebugMessenger() {
         .messageType = messageTypeFlags,
         .pfnUserCallback = &debugCallback};
 
-    debugMessenger_ =
-        instance_.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfoEXT)
+    debugMessenger =
+        instance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfoEXT)
             .value;
 }
 
@@ -532,14 +531,14 @@ void MightyEngine::createVKInstance() {
         .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
         .ppEnabledExtensionNames = extensions.data()};
 
-    instance_ = context_.createInstance(createInfo).value;
-    physicalDevice_ = instance_.enumeratePhysicalDevices().value[0];
+    instance = context.createInstance(createInfo).value;
+    physicalDevice = instance.enumeratePhysicalDevices().value[0];
 }
 
 void MightyEngine::cleanup() {
     cleanupSwapChain();
 
-    glfwDestroyWindow(window_);
+    glfwDestroyWindow(window);
     glfwTerminate();
 }
 
