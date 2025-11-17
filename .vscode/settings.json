@@ -1,8 +1,10 @@
 {
+    "editor.formatOnSave": true,
     "cmake.configureOnOpen": true,
     "cmake.buildDirectory": "${workspaceFolder}/build",
     "cmake.generator": "Ninja",
-    "editor.formatOnSave": true,
+    "C_Cpp.clang_format_fallbackStyle": "Google",
+    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
     "clangd.arguments": [
         "-background-index",
         "-compile-commands-dir=${workspaceFolder}/out/build/Clang MS"
@@ -92,5 +94,8 @@
         "ranges": "cpp",
         "codecvt": "cpp",
         "filesystem": "cpp"
-    }
+    },
+    "C_Cpp.codeAnalysis.clangTidy.enabled": true,
+    "C_Cpp.codeAnalysis.clangTidy.path": "clang-tidy",
+    "C_Cpp.codeAnalysis.clangTidy.config": "file"
 }

@@ -1,13 +1,18 @@
-#include <iostream>
+#ifndef UITLS_
+#define UITLS_
+
 #define VULKAN_HPP_NO_CONSTRUCTORS
 #define VULKAN_HPP_NO_EXCEPTIONS
 
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
 #include <windows.h>
-#include <glm/glm.hpp>
+
+#include <array>
 #include <filesystem>
 #include <fstream>
+#include <glm/glm.hpp>
+#include <iostream>
 #include <optional>
 #include <string>
 #include <vector>
@@ -30,6 +35,19 @@ struct Vertex {
 
 static vk::VertexInputBindingDescription getBindingDescription() {
     return {0, sizeof(Vertex), vk::VertexInputRate::eVertex};
+}
+
+static std::array<vk::VertexInputAttributeDescription, 2>
+    getAttributeDescriptor() {
+    return {vk::VertexInputAttributeDescription(0,
+                0,
+                vk::Format::eR32G32Sfloat,
+                offsetof(Vertex, pos)),
+
+        vk::VertexInputAttributeDescription(1,
+            0,
+            vk::Format::eR32G32B32Sfloat,
+            offsetof(Vertex, color))};
 }
 
 inline const char* VkLogSeverityToString(
@@ -197,3 +215,5 @@ inline std::vector<const char*> getInstanceExtensions() {
 }
 
 }  // namespace core
+
+#endif  // UTILS_
