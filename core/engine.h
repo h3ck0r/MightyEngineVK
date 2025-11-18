@@ -36,6 +36,16 @@ class MightyEngine {
     void recordCommandBuffer(uint32_t imageIndex);
 
     void createVertexBuffer();
+    void copyBuffer(vk::raii::Buffer& srcBuffer,
+        vk::raii::Buffer& dstBuffer,
+        vk::DeviceSize size);
+
+    void createBuffer(vk::DeviceSize size,
+        vk::BufferUsageFlags usage,
+        vk::MemoryPropertyFlags properties,
+        vk::raii::Buffer& buffer,
+        vk::raii::DeviceMemory& bufferMemory);
+
     uint32_t findMemoryType(uint32_t typeFilter,
         vk::MemoryPropertyFlags properties);
 
@@ -49,7 +59,7 @@ class MightyEngine {
     [[nodiscard]] vk::raii::ShaderModule createShaderModule(
         const std::vector<char>& code) const;
 
-    vk::raii::Device device = nullptr;
+    vk::raii::Device logicalDevice = nullptr;
     vk::raii::PhysicalDevice physicalDevice = nullptr;
     vk::raii::DebugUtilsMessengerEXT debugMessenger = nullptr;
     vk::raii::Instance instance = nullptr;
@@ -73,6 +83,8 @@ class MightyEngine {
 
     vk::raii::Buffer vertexBuffer = nullptr;
     vk::raii::DeviceMemory vertexBufferMemory = nullptr;
+    vk::raii::Buffer indexBuffer = nullptr;
+    vk::raii::DeviceMemory indexBufferMemory = nullptr;
 
     std::vector<vk::raii::Semaphore> presentCompleteSemaphores;
     std::vector<vk::raii::Semaphore> renderFinishedSemaphores;

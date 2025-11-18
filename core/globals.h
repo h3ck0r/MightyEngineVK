@@ -30,7 +30,6 @@ const std::vector<const char*> kDeviceExtensions = {
 // mutable because we can resize window.
 const std::vector kDynamicStates = {vk::DynamicState::eViewport,
     vk::DynamicState::eScissor};
-
 }  // namespace core
 
 #endif  // GLOBALS_

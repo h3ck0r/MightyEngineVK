@@ -1,29 +1,30 @@
+#include <cstdint>
+#ifdef NO_INCLUDE
+#include "vulkan/vulkan.hpp"
+#endif
 #define VULKAN_HPP_NO_CONSTRUCTORS
 #define VULKAN_HPP_NO_EXCEPTIONS
 #define VK_USE_PLATFORM_WIN32_KHR
 #define GLFW_INCLUDE_VULKAN
 #define GLFW_EXPOSE_NATIVE_WIN32
 #define STB_IMAGE_IMPLEMENTATION
-#if defined(__INTELLISENSE__) || !defined(USE_CPP20_MODULES)
-#include <vulkan/vulkan_raii.hpp>
-#else
-import vulkan_hpp;
-#endif
-
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 #include <windows.h>
 
 #include <glm/glm.hpp>
+#include <vulkan/vulkan_raii.hpp>
 
 #include "engine.h"
 #include "globals.h"
 #include "utils.h"
 
 namespace core {
-const std::vector<Vertex> vertices = {{{0.0f, -0.5f}, {1.0f, 1.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
+const std::vector<Vertex> vertices = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}};
+const std::vector<uint32_t> indices = {0, 1, 2, 2, 3, 0};
 
 static void frameBufferResizeCallback(GLFWwindow* window,
     int width,
@@ -31,6 +32,23 @@ static void frameBufferResizeCallback(GLFWwindow* window,
     auto app =
         reinterpret_cast<MightyEngine*>(glfwGetWindowUserPointer(window));
     app->frameBufferResized = true;
+}
+
+void MightyEngine::createBuffer(vk::DeviceSize size,
+    vk::BufferUsageFlags usage,
+    vk::MemoryPropertyFlags properties,
+    vk::raii::Buffer& buffer,
+    vk::raii::DeviceMemory& bufferMemory) {
+    vk::BufferCreateInfo bufferInfo{.size = size,
+        .usage = usage,
+        .sharingMode = vk::SharingMode::eExclusive};
+    buffer = logicalDevice.createBuffer(bufferInfo).value;
+    vk::MemoryRequirements memRequirements = buffer.getMemoryRequirements();
+    vk::MemoryAllocateInfo allocInfo{.allocationSize = memRequirements.size,
+        .memoryTypeIndex =
+            findMemoryType(memRequirements.memoryTypeBits, properties)};
+    bufferMemory = logicalDevice.allocateMemory(allocInfo).value;
+    buffer.bindMemory(*bufferMemory, 0);
 }
 
 void MightyEngine::recordCommandBuffer(uint32_t imageIndex) {
@@ -147,7 +165,7 @@ void MightyEngine::loop() {
         glfwPollEvents();
         drawFrame();
     }
-    device.waitIdle();
+    logicalDevice.waitIdle();
 }
 void MightyEngine::initVK() {
     LOG(INFO) << "Initilazing " << kAppName << "\n";
@@ -159,6 +177,7 @@ void MightyEngine::initVK() {
     createSwapChain();
     createImageViews();
     createGraphicsPipeline();
+
     createVertexBuffer();
 
     LOG(INFO) << "Finished Vulkan initialization.\n";
@@ -177,7 +196,7 @@ void MightyEngine::drawFrame() {
         frameBufferResized = false;
         return;
     }
-    while (device.waitForFences(*inFlightFences[currentFrame],
+    while (logicalDevice.waitForFences(*inFlightFences[currentFrame],
                vk::True,
                UINT64_MAX)
            == vk::Result::eTimeout)
@@ -194,7 +213,7 @@ void MightyEngine::drawFrame() {
         return;
     }
 
-    device.resetFences(*inFlightFences[currentFrame]);
+    logicalDevice.resetFences(*inFlightFences[currentFrame]);
     commandBuffers[currentFrame].reset();
     recordCommandBuffer(imageIndex);
 
@@ -230,7 +249,7 @@ void MightyEngine::drawFrame() {
     vk::ShaderModuleCreateInfo createInfo{.codeSize =
                                               code.size() * sizeof(char),
         .pCode = reinterpret_cast<const uint32_t*>(code.data())};
-    return device.createShaderModule(createInfo).value;
+    return logicalDevice.createShaderModule(createInfo).value;
 }
 
 void MightyEngine::recreateSwapChain() {
@@ -240,7 +259,7 @@ void MightyEngine::recreateSwapChain() {
         glfwGetFramebufferSize(window, &width, &height);
         glfwWaitEvents();
     }
-    device.waitIdle();
+    logicalDevice.waitIdle();
 
     cleanupSwapChain();
 
@@ -260,7 +279,8 @@ void MightyEngine::createImageViews() {
         .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}};
     for (auto image : swapChainImages) {
         imageViewCreateInfo.image = image;
-        auto imageView = device.createImageView(imageViewCreateInfo).value;
+        auto imageView =
+            logicalDevice.createImageView(imageViewCreateInfo).value;
         swapChainImageViews.emplace_back(std::move(imageView));
     }
 }
@@ -295,7 +315,7 @@ void MightyEngine::createSwapChain() {
         .clipped = true,
         .oldSwapchain = nullptr};
 
-    swapChain = device.createSwapchainKHR(swapChainCreateInfo).value;
+    swapChain = logicalDevice.createSwapchainKHR(swapChainCreateInfo).value;
     swapChainImages = swapChain.getImages().value;
 }
 
@@ -314,26 +334,51 @@ uint32_t MightyEngine::findMemoryType(uint32_t typeFilter,
     return -1;
 }
 
+void MightyEngine::copyBuffer(vk::raii::Buffer& srcBuffer,
+    vk::raii::Buffer& dstBuffer,
+    vk::DeviceSize size) {
+    vk::CommandBufferAllocateInfo allocInfo{.commandPool = commandPool,
+        .level = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = 1};
+    vk::raii::CommandBuffer commandCopyBuffer =
+        std::move(logicalDevice.allocateCommandBuffers(allocInfo)->front());
+    commandCopyBuffer.begin(
+        {.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+    commandCopyBuffer.copyBuffer(srcBuffer,
+        dstBuffer,
+        vk::BufferCopy(0, 0, size));
+    commandCopyBuffer.end();
+
+    deviceQueue.submit(vk::SubmitInfo{.commandBufferCount = 1,
+        .pCommandBuffers = &*commandCopyBuffer});
+    deviceQueue.waitIdle();
+}
+
 void MightyEngine::createVertexBuffer() {
-    vk::BufferCreateInfo bufferInfo{.size =
-                                        sizeof(vertices[0]) * vertices.size(),
-        .usage = vk::BufferUsageFlagBits::eVertexBuffer,
-        .sharingMode = vk::SharingMode::eExclusive};
+    vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
-    vertexBuffer = device.createBuffer(bufferInfo).value;
-    vk::MemoryRequirements memRequirements =
-        vertexBuffer.getMemoryRequirements();
-    vk::MemoryAllocateInfo memoryAllocateInfo{.allocationSize =
-                                                  memRequirements.size,
-        .memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits,
-            vk::MemoryPropertyFlagBits::eHostVisible
-                | vk::MemoryPropertyFlagBits::eHostCoherent)};
-    vertexBufferMemory = device.allocateMemory(memoryAllocateInfo).value;
-    vertexBuffer.bindMemory(*vertexBufferMemory, 0);
+    vk::raii::Buffer stagingBuffer = nullptr;
+    vk::raii::DeviceMemory stagingMemory = nullptr;
 
-    void* data = vertexBufferMemory.mapMemory(0, bufferInfo.size).value;
-    memcpy(data, vertices.data(), bufferInfo.size);
-    vertexBufferMemory.unmapMemory();
+    createBuffer(bufferSize,
+        vk::BufferUsageFlagBits::eTransferSrc,
+        vk::MemoryPropertyFlagBits::eHostVisible
+            | vk::MemoryPropertyFlagBits::eHostCoherent,
+        stagingBuffer,
+        stagingMemory);
+    void* stagingData = stagingMemory.mapMemory(0, bufferSize).value;
+    memcpy(stagingData, vertices.data(), bufferSize);
+    stagingMemory.unmapMemory();
+
+    createBuffer(bufferSize,
+        vk::BufferUsageFlagBits::eVertexBuffer
+            | vk::BufferUsageFlagBits::eTransferDst,
+        vk::MemoryPropertyFlagBits::eHostVisible
+            | vk::MemoryPropertyFlagBits::eHostCoherent,
+        vertexBuffer,
+        vertexBufferMemory);
+
+    copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
 }
 
 void MightyEngine::createGraphicsPipeline() {
@@ -388,7 +433,7 @@ void MightyEngine::createGraphicsPipeline() {
         .pushConstantRangeCount = 0};
 
     graphicsPipelineLayout =
-        device.createPipelineLayout(pipelineLayoutInfo).value;
+        logicalDevice.createPipelineLayout(pipelineLayoutInfo).value;
     // Create shaders
     auto shaderPath = getExecutableDir() / "shaders" / "slang.spv";
     auto shaderCode = readFile(shaderPath.string());
@@ -431,25 +476,25 @@ void MightyEngine::createGraphicsPipeline() {
         .renderPass = nullptr};
 
     graphicsPipeline =
-        device.createGraphicsPipeline(nullptr, pipelineInfo).value;
+        logicalDevice.createGraphicsPipeline(nullptr, pipelineInfo).value;
 
     vk::CommandPoolCreateInfo poolInfo{
         .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
         .queueFamilyIndex = graphicsQueueFamilyIndex};
-    commandPool = device.createCommandPool(poolInfo).value;
+    commandPool = logicalDevice.createCommandPool(poolInfo).value;
 
     vk::CommandBufferAllocateInfo allocInfo{.commandPool = commandPool,
         .level = vk::CommandBufferLevel::ePrimary,
         .commandBufferCount = MAX_FRAMES_IN_FLIGHT};
-    commandBuffers = device.allocateCommandBuffers(allocInfo).value;
+    commandBuffers = logicalDevice.allocateCommandBuffers(allocInfo).value;
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         presentCompleteSemaphores.emplace_back(
-            device.createSemaphore(vk::SemaphoreCreateInfo()).value);
+            logicalDevice.createSemaphore(vk::SemaphoreCreateInfo()).value);
         renderFinishedSemaphores.emplace_back(
-            device.createSemaphore(vk::SemaphoreCreateInfo()).value);
-        inFlightFences.emplace_back(
-            device.createFence({.flags = vk::FenceCreateFlagBits::eSignaled})
+            logicalDevice.createSemaphore(vk::SemaphoreCreateInfo()).value);
+        inFlightFences.emplace_back(logicalDevice
+                .createFence({.flags = vk::FenceCreateFlagBits::eSignaled})
                 .value);
     }
 }
@@ -480,9 +525,9 @@ void MightyEngine::createLogicalDevice() {
             static_cast<uint32_t>(kDeviceExtensions.size()),
         .ppEnabledExtensionNames = kDeviceExtensions.data()};
 
-    device = physicalDevice.createDevice(deviceCreateInfo).value;
-    deviceQueue = device.getQueue(graphicsQueueFamilyIndex, 0);
-    presentQueue = device.getQueue(graphicsQueueFamilyIndex, 0);
+    logicalDevice = physicalDevice.createDevice(deviceCreateInfo).value;
+    deviceQueue = logicalDevice.getQueue(graphicsQueueFamilyIndex, 0);
+    presentQueue = logicalDevice.getQueue(graphicsQueueFamilyIndex, 0);
 }
 
 void MightyEngine::setupDebugMessenger() {
