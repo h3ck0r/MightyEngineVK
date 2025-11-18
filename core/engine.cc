@@ -1,24 +1,33 @@
-#include <cstdint>
-#include <cstring>
-#ifdef NO_INCLUDE
-#include "vulkan/vulkan.hpp"
-#endif
 #define VULKAN_HPP_NO_CONSTRUCTORS
 #define VULKAN_HPP_NO_EXCEPTIONS
 #define VK_USE_PLATFORM_WIN32_KHR
 #define GLFW_INCLUDE_VULKAN
 #define GLFW_EXPOSE_NATIVE_WIN32
 #define STB_IMAGE_IMPLEMENTATION
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+
+#include "engine.h"
+
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 #include <windows.h>
 
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
-#include "engine.h"
+#include "glm/ext/matrix_clip_space.hpp"
+#include "glm/ext/matrix_transform.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/fwd.hpp"
+#include "glm/trigonometric.hpp"
 #include "globals.h"
 #include "utils.h"
+#include "vulkan/vulkan.hpp"
 
 namespace core {
 const std::vector<Vertex> vertices = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
@@ -85,6 +94,11 @@ void MightyEngine::recordCommandBuffer(uint32_t imageIndex) {
         .pColorAttachments = &attachmentInfo};
 
     currentCommandBuffer->beginRendering(renderingInfo);
+    currentCommandBuffer->bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+        graphicsPipelineLayout,
+        0,
+        *descriptorSets[currentFrame],
+        nullptr);
     currentCommandBuffer->bindPipeline(vk::PipelineBindPoint::eGraphics,
         graphicsPipeline);
     currentCommandBuffer->setViewport(0,
@@ -180,12 +194,115 @@ void MightyEngine::initVK() {
     createLogicalDevice();
     createSwapChain();
     createImageViews();
+    createDescriptorSetLayout();
     createGraphicsPipeline();
 
     createIndexBuffer();
     createVertexBuffer();
+    createUniformBuffers();
+
+    createDescriptorPool();
+    createDescriptorSets();
 
     LOG(INFO) << "Finished Vulkan initialization.\n";
+}
+
+void MightyEngine::createDescriptorSets() {
+    std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT,
+        *descriptorSetLayout);
+    vk::DescriptorSetAllocateInfo allocInfo{.descriptorPool = descriptorPool,
+        .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
+        .pSetLayouts = layouts.data()};
+    descriptorSets.clear();
+    descriptorSets = logicalDevice.allocateDescriptorSets(allocInfo).value;
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vk::DescriptorBufferInfo bufferInfo{.buffer = uniformBuffers[i],
+            .offset = 0,
+            .range = sizeof(UniformBufferObject)};
+        vk::WriteDescriptorSet descriptorWrite{.dstSet = descriptorSets[i],
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eUniformBuffer,
+            .pBufferInfo = &bufferInfo};
+        logicalDevice.updateDescriptorSets(descriptorWrite, {});
+    }
+}
+
+void MightyEngine::createDescriptorPool() {
+    vk::DescriptorPoolSize poolSize(vk::DescriptorType::eUniformBuffer,
+        MAX_FRAMES_IN_FLIGHT);
+    vk::DescriptorPoolCreateInfo poolInfo{
+        .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+        .maxSets = MAX_FRAMES_IN_FLIGHT,
+        .poolSizeCount = 1,
+        .pPoolSizes = &poolSize};
+
+    descriptorPool = logicalDevice.createDescriptorPool(poolInfo).value;
+}
+
+void MightyEngine::createUniformBuffers() {
+    uniformBuffers.clear();
+    uniformBuffersMemory.clear();
+    uniformBuffersMapped.clear();
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
+        vk::raii::Buffer buffer = nullptr;
+        vk::raii::DeviceMemory bufferMemory = nullptr;
+        createBuffer(bufferSize,
+            vk::BufferUsageFlagBits::eUniformBuffer,
+            vk::MemoryPropertyFlagBits::eHostVisible
+                | vk::MemoryPropertyFlagBits::eHostCoherent,
+            buffer,
+            bufferMemory);
+        uniformBuffers.emplace_back(std::move(buffer));
+        uniformBuffersMemory.emplace_back(std::move(bufferMemory));
+        uniformBuffersMapped.emplace_back(
+            uniformBuffersMemory[i].mapMemory(0, bufferSize).value);
+    }
+}
+
+void MightyEngine::createDescriptorSetLayout() {
+    vk::DescriptorSetLayoutBinding uboLayoutBinding{0,
+        vk::DescriptorType::eUniformBuffer,
+        1,
+        vk::ShaderStageFlagBits::eVertex,
+        nullptr};
+    vk::DescriptorSetLayoutCreateInfo layoutInfo{
+        .flags = {},
+        .bindingCount = 1,
+        .pBindings = &uboLayoutBinding,
+    };
+    descriptorSetLayout =
+        logicalDevice.createDescriptorSetLayout(layoutInfo).value;
+}
+
+void MightyEngine::updateUniformBuffer(uint32_t currentImage) {
+    static auto startTime = std::chrono::high_resolution_clock::now();
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(
+        currentTime - startTime)
+                     .count();
+
+    UniformBufferObject ubo{};
+    ubo.model = glm::rotate(glm::mat4(1.0f),
+        time * glm::radians(90.f),
+        glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
+        glm::vec3(0.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.proj = glm::perspective(glm::radians(45.0f),
+        static_cast<float>(swapChainExtent.width)
+            / static_cast<float>(swapChainExtent.height),
+        0.1f,
+        10.0f);
+
+    ubo.proj[1][1] *= -1;
+
+    memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }
 
 // At a high level, rendering a frame in Vulkan consists of a common set of
@@ -221,6 +338,8 @@ void MightyEngine::drawFrame() {
     logicalDevice.resetFences(*inFlightFences[currentFrame]);
     commandBuffers[currentFrame].reset();
     recordCommandBuffer(imageIndex);
+
+    updateUniformBuffer(currentFrame);
 
     vk::PipelineStageFlags waitDestinationStageMask(
         vk::PipelineStageFlagBits::eColorAttachmentOutput);
@@ -434,7 +553,7 @@ void MightyEngine::createGraphicsPipeline() {
         .rasterizerDiscardEnable = vk::False,
         .polygonMode = vk::PolygonMode::eFill,
         .cullMode = vk::CullModeFlagBits::eBack,
-        .frontFace = vk::FrontFace::eClockwise,
+        .frontFace = vk::FrontFace::eCounterClockwise,
         .depthBiasEnable = vk::False,
         .depthBiasSlopeFactor = 1.0f,
         .lineWidth = 1.0f};
@@ -460,7 +579,8 @@ void MightyEngine::createGraphicsPipeline() {
         .attachmentCount = 1,
         .pAttachments = &colorBlendAttachment};
 
-    vk::PipelineLayoutCreateInfo pipelineLayoutInfo{.setLayoutCount = 0,
+    vk::PipelineLayoutCreateInfo pipelineLayoutInfo{.setLayoutCount = 1,
+        .pSetLayouts = &*descriptorSetLayout,
         .pushConstantRangeCount = 0};
 
     graphicsPipelineLayout =

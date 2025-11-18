@@ -28,6 +28,12 @@ using enum vk::DebugUtilsMessageSeverityFlagBitsEXT;
 #define LOG_VK(severity, type) LogStream(severity, type, __FILE__, __LINE__)
 enum LogType { INFO, ERR, WARR };
 
+struct UniformBufferObject {
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
+
 struct Vertex {
     glm::vec2 pos;
     glm::vec3 color;

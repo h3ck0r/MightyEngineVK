@@ -31,9 +31,16 @@ class MightyEngine {
     void createImageViews();
     void cleanupSwapChain();
 
+    void createDescriptorSetLayout();
+    void createUniformBuffers();
+
     void drawFrame();
     void createGraphicsPipeline();
     void recordCommandBuffer(uint32_t imageIndex);
+    void updateUniformBuffer(uint32_t currentFrame);
+
+    void createDescriptorPool();
+    void createDescriptorSets();
 
     void createVertexBuffer();
     void createIndexBuffer();
@@ -76,6 +83,8 @@ class MightyEngine {
     std::vector<vk::raii::ImageView> swapChainImageViews;
     vk::Extent2D swapChainExtent;
     vk::SurfaceFormatKHR swapChainSurfaceFormat;
+
+    vk::raii::DescriptorSetLayout descriptorSetLayout = nullptr;
     vk::raii::PipelineLayout graphicsPipelineLayout = nullptr;
     vk::raii::Pipeline graphicsPipeline = nullptr;
 
@@ -86,6 +95,12 @@ class MightyEngine {
     vk::raii::DeviceMemory vertexBufferMemory = nullptr;
     vk::raii::Buffer indexBuffer = nullptr;
     vk::raii::DeviceMemory indexBufferMemory = nullptr;
+
+    std::vector<vk::raii::Buffer> uniformBuffers;
+    std::vector<vk::raii::DeviceMemory> uniformBuffersMemory;
+    std::vector<void*> uniformBuffersMapped;
+    vk::raii::DescriptorPool descriptorPool = nullptr;
+    std::vector<vk::raii::DescriptorSet> descriptorSets;
 
     std::vector<vk::raii::Semaphore> presentCompleteSemaphores;
     std::vector<vk::raii::Semaphore> renderFinishedSemaphores;
