@@ -36,6 +36,7 @@ class MightyEngine {
     void recordCommandBuffer(uint32_t imageIndex);
 
     void createVertexBuffer();
+    void createIndexBuffer();
     void copyBuffer(vk::raii::Buffer& srcBuffer,
         vk::raii::Buffer& dstBuffer,
         vk::DeviceSize size);

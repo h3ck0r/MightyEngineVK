@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <cstring>
 #ifdef NO_INCLUDE
 #include "vulkan/vulkan.hpp"
 #endif
@@ -96,7 +97,10 @@ void MightyEngine::recordCommandBuffer(uint32_t imageIndex) {
     currentCommandBuffer->setScissor(0,
         vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent));
     currentCommandBuffer->bindVertexBuffers(0, *vertexBuffer, {0});
-    currentCommandBuffer->draw(3, 1, 0, 0);
+    currentCommandBuffer->bindIndexBuffer(*indexBuffer,
+        0,
+        vk::IndexType::eUint32);
+    currentCommandBuffer->drawIndexed(indices.size(), 1, 0, 0, 0);
     currentCommandBuffer->endRendering();
 
     transitioImageLayout(imageIndex,
@@ -178,6 +182,7 @@ void MightyEngine::initVK() {
     createImageViews();
     createGraphicsPipeline();
 
+    createIndexBuffer();
     createVertexBuffer();
 
     LOG(INFO) << "Finished Vulkan initialization.\n";
@@ -352,6 +357,32 @@ void MightyEngine::copyBuffer(vk::raii::Buffer& srcBuffer,
     deviceQueue.submit(vk::SubmitInfo{.commandBufferCount = 1,
         .pCommandBuffers = &*commandCopyBuffer});
     deviceQueue.waitIdle();
+}
+
+void MightyEngine::createIndexBuffer() {
+    vk::DeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+
+    vk::raii::Buffer stagingBuffer = nullptr;
+    vk::raii::DeviceMemory stagingBufferMemory = nullptr;
+    createBuffer(bufferSize,
+        vk::BufferUsageFlagBits::eTransferSrc,
+        vk::MemoryPropertyFlagBits::eHostVisible
+            | vk::MemoryPropertyFlagBits::eHostCoherent,
+        stagingBuffer,
+        stagingBufferMemory);
+
+    void* data = stagingBufferMemory.mapMemory(0, bufferSize).value;
+    memcpy(data, indices.data(), bufferSize);
+    stagingBufferMemory.unmapMemory();
+
+    createBuffer(bufferSize,
+        vk::BufferUsageFlagBits::eTransferDst
+            | vk::BufferUsageFlagBits::eIndexBuffer,
+        vk::MemoryPropertyFlagBits::eHostVisible
+            | vk::MemoryPropertyFlagBits::eHostCoherent,
+        indexBuffer,
+        indexBufferMemory);
+    copyBuffer(stagingBuffer, indexBuffer, bufferSize);
 }
 
 void MightyEngine::createVertexBuffer() {
