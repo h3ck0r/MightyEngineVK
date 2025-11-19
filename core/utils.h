@@ -4,6 +4,9 @@
 #define VULKAN_HPP_NO_CONSTRUCTORS
 #define VULKAN_HPP_NO_EXCEPTIONS
 
+#include <cstdint>
+
+#define TINYOBJLOADER_IMPLEMENTATION
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
 #include <windows.h>
@@ -18,7 +21,8 @@
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
-#include "globals.h"
+#include "tiny_obj_loader.h"
+#include "vulkan/vulkan.hpp"
 
 namespace core {
 
@@ -39,6 +43,66 @@ struct Vertex {
     glm::vec3 color;
 };
 
+struct Material {
+    glm::vec3 diffuse;
+    glm::vec3 emission;
+};
+
+inline uint32_t findMemoryType(const vk::PhysicalDevice& physicalDevice,
+    uint32_t typeFilter,
+    vk::MemoryPropertyFlags properties) {
+    vk::PhysicalDeviceMemoryProperties memProperties =
+        physicalDevice.getMemoryProperties();
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter & (1 << i))
+            && (memProperties.memoryTypes[i].propertyFlags & properties)
+                   == properties) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+inline void loadFromFile(std::vector<Vertex>& vertices,
+    std::vector<uint32_t>& indices,
+    std::vector<Material>& materials) {
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> _materials;
+    std::string warn, err;
+
+    if (!tinyobj::LoadObj(&attrib,
+            &shapes,
+            &_materials,
+            &warn,
+            &err,
+            "../assets/CornellBox-Original.obj",
+            "../assets")) {
+        throw std::runtime_error(warn + err);
+    }
+
+    for (const auto& shape : shapes) {
+        for (const auto& index : shape.mesh.indices) {
+            Vertex vertex{};
+            vertex.pos[0] = attrib.vertices[3 * index.vertex_index + 0];
+            vertex.pos[1] = -attrib.vertices[3 * index.vertex_index + 1];
+            vertex.pos[2] = attrib.vertices[3 * index.vertex_index + 2];
+            vertices.push_back(vertex);
+            indices.push_back(static_cast<uint32_t>(indices.size()));
+        }
+        for (const auto& matIndex : shape.mesh.material_ids) {
+            Material mat;
+            mat.diffuse[0] = materials[matIndex].diffuse[0];
+            mat.diffuse[1] = materials[matIndex].diffuse[1];
+            mat.diffuse[2] = materials[matIndex].diffuse[2];
+            mat.emission[0] = materials[matIndex].emission[0];
+            mat.emission[1] = materials[matIndex].emission[1];
+            mat.emission[2] = materials[matIndex].emission[2];
+            materials.push_back(mat);
+        }
+    }
+}
 inline vk::VertexInputBindingDescription getBindingDescription() {
     return {0, sizeof(Vertex), vk::VertexInputRate::eVertex};
 }
@@ -203,21 +267,6 @@ inline vk::SurfaceFormatKHR chooseSwapSurfaceFormat(
         }
     }
     return availableFormats[0];
-}
-
-inline std::vector<const char*> getInstanceExtensions() {
-    uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions =
-        glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-    std::vector<const char*> extensions(glfwExtensions,
-        glfwExtensions + glfwExtensionCount);
-
-    if (kEnableValidationLayers) {
-        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-    }
-
-    return extensions;
 }
 
 }  // namespace core

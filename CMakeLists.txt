@@ -44,6 +44,7 @@ add_custom_target(CopyAssets ALL
 find_package(Vulkan REQUIRED)
 add_subdirectory(external/glfw)
 add_subdirectory(external/glm)
+add_subdirectory(external/tinyobjloader)
 
 file(GLOB CORE_SOURCES "core/*.cc")
 
@@ -53,7 +54,7 @@ target_include_directories(VulkanEngineExecutable PRIVATE
     core
     external/stb
 )
-target_link_libraries(VulkanEngineExecutable PUBLIC Vulkan::Vulkan glfw glm)
+target_link_libraries(VulkanEngineExecutable PUBLIC Vulkan::Vulkan glfw glm tinyobjloader)
 
 add_dependencies(VulkanEngineExecutable CompileShaders CopyAssets)
 

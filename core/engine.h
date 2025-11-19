@@ -1,5 +1,11 @@
 #ifndef CORE_ENGINE_
 #define CORE_ENGINE_
+#define VULKAN_HPP_NO_CONSTRUCTORS
+#define VULKAN_HPP_NO_EXCEPTIONS
+#define VK_USE_PLATFORM_WIN32_KHR
+#define GLFW_INCLUDE_VULKAN
+#define GLFW_EXPOSE_NATIVE_WIN32
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 
 #include <GLFW/glfw3.h>
 
@@ -8,7 +14,33 @@
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
+#include "utils.h"
+#include "vulkan/vulkan.hpp"
+
 namespace core {
+
+struct MightyBuffer {
+    enum class Type {
+        Scratch,
+        AccelerationInput,
+        AccelerationStorage,
+        ShaderBindingTable,
+    };
+    MightyBuffer() = default;
+
+    vk::raii::Buffer buffer = nullptr;
+    vk::raii::DeviceMemory memory = nullptr;
+    vk::DescriptorBufferInfo descriptorBufferInfo;
+    uint64_t deviceAddress = 0;
+};
+
+struct MightyAccelerationStruct {
+    MightyAccelerationStruct() = default;
+
+    MightyBuffer buffer;
+    vk::raii::AccelerationStructureKHR accelerationStruct = nullptr;
+    vk::WriteDescriptorSetAccelerationStructureKHR descriptorAccelInfo;
+};
 
 class MightyEngine {
    public:
@@ -17,45 +49,30 @@ class MightyEngine {
 
     void loop();
     void cleanup();
-    void initWindow();
 
     void initVK();
-    void createVKInstance();
 
-    void createSurface();
-    void setupDebugMessenger();
-    void createLogicalDevice();
-
-    void createSwapChain();
     void recreateSwapChain();
-    void createImageViews();
     void cleanupSwapChain();
-
-    void createDescriptorSetLayout();
-    void createUniformBuffers();
+    void createImageViews();
+    void createSwapChain();
 
     void drawFrame();
-    void createGraphicsPipeline();
     void recordCommandBuffer(uint32_t imageIndex);
     void updateUniformBuffer(uint32_t currentFrame);
 
-    void createDescriptorPool();
-    void createDescriptorSets();
-
-    void createVertexBuffer();
-    void createIndexBuffer();
     void copyBuffer(vk::raii::Buffer& srcBuffer,
         vk::raii::Buffer& dstBuffer,
         vk::DeviceSize size);
 
-    void createBuffer(vk::DeviceSize size,
-        vk::BufferUsageFlags usage,
-        vk::MemoryPropertyFlags properties,
-        vk::raii::Buffer& buffer,
-        vk::raii::DeviceMemory& bufferMemory);
+    MightyBuffer createBuffer(MightyBuffer::Type type,
+        vk::DeviceSize size,
+        const void* data = nullptr);
 
-    uint32_t findMemoryType(uint32_t typeFilter,
-        vk::MemoryPropertyFlags properties);
+    MightyAccelerationStruct createAccelerationStruct(
+        vk::AccelerationStructureGeometryKHR geometry,
+        uint32_t primitiveCount,
+        vk::AccelerationStructureTypeKHR type);
 
     void transitioImageLayout(uint32_t imageIndex,
         vk::ImageLayout oldLayout,
@@ -91,11 +108,6 @@ class MightyEngine {
     vk::raii::CommandPool commandPool = nullptr;
     std::vector<vk::raii::CommandBuffer> commandBuffers;
 
-    vk::raii::Buffer vertexBuffer = nullptr;
-    vk::raii::DeviceMemory vertexBufferMemory = nullptr;
-    vk::raii::Buffer indexBuffer = nullptr;
-    vk::raii::DeviceMemory indexBufferMemory = nullptr;
-
     std::vector<vk::raii::Buffer> uniformBuffers;
     std::vector<vk::raii::DeviceMemory> uniformBuffersMemory;
     std::vector<void*> uniformBuffersMapped;
@@ -111,6 +123,14 @@ class MightyEngine {
     bool frameBufferResized = false;
 
     GLFWwindow* window;
+
+    MightyBuffer vertexBuffer;
+    MightyBuffer indexBuffer;
+    MightyBuffer materialBuffer;
+
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
+    std::vector<Material> materials;
 };
 
 }  // namespace core
