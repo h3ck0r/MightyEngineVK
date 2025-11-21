@@ -1,6 +1,6 @@
-#include "core/engine.h"
+#include "core/context.h"
 
 int main() {
-    core::MightyEngine engine;
-    engine.run();
+    context::MightyContext context;
+    context.run();
 }
