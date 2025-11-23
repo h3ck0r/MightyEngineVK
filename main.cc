@@ -1,6 +1,6 @@
 #include "core/context.h"
 
 int main() {
-    context::MightyContext context;
+    mty::MtyContext context;
     context.run();
 }

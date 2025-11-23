@@ -1,14 +1,22 @@
 #ifndef CONTEXT_
 #define CONTEXT_
 
+#include <Windows.h>
+#include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_win32.h>
 
-#include <iostream>
-#include <string>
+#include "GLFW/glfw3.h"
 
-namespace context {
+#define WINDOW_WIDTH  1920
+#define WINDOW_HEIGHT 1080
+
+// mty = Mighty
+namespace mty {
 inline constexpr const char* INSTANCE_EXTENSIONS[] = {
-    VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
+    VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+    VK_KHR_SURFACE_EXTENSION_NAME,
+    VK_KHR_WIN32_SURFACE_EXTENSION_NAME};
 inline constexpr const char* INSTANCE_LAYERS[] = {
     "VK_LAYER_KHRONOS_validation"};
 inline constexpr const VkValidationFeatureEnableEXT VALIDATION_EXTENSIONS[] = {
@@ -16,63 +24,25 @@ inline constexpr const VkValidationFeatureEnableEXT VALIDATION_EXTENSIONS[] = {
     VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT,
     VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
 };
+inline constexpr const char* DEVICE_EXTENSIONS[] = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
-struct MightyContext {
+struct MtyContext {
     void run();
     void createInstance();
-    void createDevice();
+    void createDeviceAndQueue();
+    void createSurfaceAndSwapchain();
+    void loop();
+    void cleanup();
 
     VkInstance instance;
 
     VkPhysicalDevice physicalDevice;
-    VkPhysicalDeviceProperties physicalDeviceProperties;
+    VkDevice device;
+    VkQueue queue;
+    VkSurfaceKHR surface;
+    GLFWwindow* window;
 };
-}  // namespace context
-
-inline VkBool32 debugMessengerCallback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-    VkDebugUtilsMessageTypeFlagsEXT messageTypes,
-    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-    void* pUserData) {
-    std::string messageSeverityToString = "";
-    switch (messageSeverity) {
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
-            messageSeverityToString = "V";
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-            messageSeverityToString = "I";
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-            messageSeverityToString = "W";
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-            messageSeverityToString = "E";
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
-            break;
-    }
-    std::string messageTypeToString = "";
-    switch (messageTypes) {
-        case VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT:
-            messageTypeToString = "General";
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT:
-            messageTypeToString = "Validation";
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT:
-            messageTypeToString = "Performance";
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT:
-            messageTypeToString = "Device Address";
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_TYPE_FLAG_BITS_MAX_ENUM_EXT:
-            break;
-    }
-
-    std::cout << "[" << messageSeverityToString << "]" << "["
-              << messageTypeToString << "] " << pCallbackData->pMessage << "\n";
-
-    return VK_FALSE;
-}
+}  // namespace mty
 
 #endif  // CONTEXT_
