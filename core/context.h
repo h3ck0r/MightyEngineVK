@@ -11,7 +11,7 @@
 #define WINDOW_WIDTH  1920
 #define WINDOW_HEIGHT 1080
 
-// mty = Mighty
+// mty == Mighty
 namespace mty {
 inline constexpr const char* INSTANCE_EXTENSIONS[] = {
     VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
@@ -24,7 +24,7 @@ inline constexpr const VkValidationFeatureEnableEXT VALIDATION_EXTENSIONS[] = {
     VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT,
     VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
 };
-inline constexpr const char* DEVICE_EXTENSIONS[] = {
+inline constexpr const char* LOGICAL_DEVICE_EXTENSIONS[] = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
 struct MtyContext {
@@ -41,6 +41,7 @@ struct MtyContext {
     VkDevice device;
     VkQueue queue;
     VkSurfaceKHR surface;
+    VkSwapchainKHR swapchain;
     GLFWwindow* window;
 };
 }  // namespace mty

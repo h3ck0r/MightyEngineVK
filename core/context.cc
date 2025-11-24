@@ -49,6 +49,64 @@ void MtyContext::createSurfaceAndSwapchain() {
         &win32CreateSurfaceInfo,
         nullptr,
         &surface));
+    VkPhysicalDeviceSurfaceInfo2KHR surfaceInfo{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR,
+        .surface = surface};
+    VkSurfaceCapabilities2KHR surfaceCapabilities{
+        .sType = VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR};
+    vkGetPhysicalDeviceSurfaceCapabilities2KHR(physicalDevice,
+        &surfaceInfo,
+        &surfaceCapabilities);
+
+    uint32_t surfaceCount = 0;
+    vkGetPhysicalDeviceSurfaceFormats2KHR(physicalDevice,
+        &surfaceInfo,
+        &surfaceCount,
+        nullptr);
+    std::vector<VkSurfaceFormat2KHR> surfaceFormats(surfaceCount);
+    vkGetPhysicalDeviceSurfaceFormats2KHR(physicalDevice,
+        &surfaceInfo,
+        &surfaceCount,
+        surfaceFormats.data());
+    VkSurfaceFormat2KHR selectedFormat{
+        .sType = VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR};
+    for (const auto& availableFormat : surfaceFormats) {
+        if (availableFormat.surfaceFormat.format
+                == VkFormat::VK_FORMAT_B8G8R8A8_SRGB
+            && availableFormat.surfaceFormat.colorSpace
+                   == VkColorSpaceKHR::VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            selectedFormat = availableFormat;
+        }
+    }
+
+    uint32_t presentModesCount = 0;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice,
+        surface,
+        &presentModesCount,
+        nullptr);
+    std::vector<VkPresentModeKHR> presentModes(presentModesCount);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice,
+        surface,
+        &presentModesCount,
+        presentModes.data());
+    VkPresentModeKHR presentMode;
+    if (std::find(presentModes.begin(),
+            presentModes.end(),
+            VkPresentModeKHR::VK_PRESENT_MODE_MAILBOX_KHR)
+        != presentModes.end()) {
+        // Tripple buffering
+        presentMode = VkPresentModeKHR::VK_PRESENT_MODE_MAILBOX_KHR;
+    } else {
+        // V-Sync
+        presentMode = VkPresentModeKHR::VK_PRESENT_MODE_FIFO_KHR;
+    }
+
+    VkSwapchainCreateInfoKHR swapchainCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+
+    };
+    vkCreateSwapchainKHR(device, &swapchainCreateInfo, nullptr, &swapchain);
+    std::cout << "";
 }
 
 void MtyContext::createDeviceAndQueue() {
@@ -158,8 +216,8 @@ void MtyContext::createDeviceAndQueue() {
         .pNext = &physicalDeviceFeatures,
         .queueCreateInfoCount = 1,
         .pQueueCreateInfos = &queueCreateInfo,
-        .enabledExtensionCount = std::size(DEVICE_EXTENSIONS),
-        .ppEnabledExtensionNames = DEVICE_EXTENSIONS};
+        .enabledExtensionCount = std::size(LOGICAL_DEVICE_EXTENSIONS),
+        .ppEnabledExtensionNames = LOGICAL_DEVICE_EXTENSIONS};
 
     MTY_CHECK(
         vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device));
