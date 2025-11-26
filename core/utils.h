@@ -21,7 +21,7 @@ inline void handleVulkanResult(VkResult result, const char* file, int line) {
 }
 
 inline void windowErrorCallback(int error, const char* description) {
-    std::cerr << description << "\n";
+    std::cerr << "[Window callback]" << description << "\n";
 }
 
 inline VkBool32 debugMessengerCallback(

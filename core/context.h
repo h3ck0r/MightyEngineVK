@@ -8,14 +8,16 @@
 
 #include "GLFW/glfw3.h"
 
-#define WINDOW_WIDTH  1920
-#define WINDOW_HEIGHT 1080
+#define WINDOW_WIDTH            1920
+#define WINDOW_HEIGHT           1080
+#define MAX_FRAMES_IN_SWAPCHAIN 3
 
 // mty == Mighty
 namespace mty {
 inline constexpr const char* INSTANCE_EXTENSIONS[] = {
     VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
     VK_KHR_SURFACE_EXTENSION_NAME,
+    VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME,
     VK_KHR_WIN32_SURFACE_EXTENSION_NAME};
 inline constexpr const char* INSTANCE_LAYERS[] = {
     "VK_LAYER_KHRONOS_validation"};
@@ -29,6 +31,7 @@ inline constexpr const char* LOGICAL_DEVICE_EXTENSIONS[] = {
 
 struct MtyContext {
     void run();
+    void initWindow();
     void createInstance();
     void createDeviceAndQueue();
     void createSurfaceAndSwapchain();

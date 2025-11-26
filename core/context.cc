@@ -2,11 +2,14 @@
 
 #include <vulkan/vulkan_core.h>
 
+
 #define VK_USE_PLATFORM_WIN32_KHR
+#define STB_IMAGE_IMPLEMENTATION
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
+#include <stb_image.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_win32.h>
 
@@ -21,6 +24,7 @@
 namespace mty {
 
 void MtyContext::run() {
+    initWindow();
     createInstance();
     createDeviceAndQueue();
     createSurfaceAndSwapchain();
@@ -34,21 +38,31 @@ void MtyContext::loop() {
     }
 }
 
-void MtyContext::createSurfaceAndSwapchain() {
+void MtyContext::initWindow() {
+    int width, height, channels;
+    unsigned char* pixels =
+        stbi_load("assets/ICON.png", &width, &height, &channels, 4);
+
+    GLFWimage image;
+    image.height = height;
+    image.width = width;
+    image.pixels = pixels;
+
     glfwInit();
     glfwSetErrorCallback(windowErrorCallback);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     window = glfwCreateWindow(WINDOW_WIDTH,
         WINDOW_HEIGHT,
         "Mighty Engine",
         nullptr,
         nullptr);
-    VkWin32SurfaceCreateInfoKHR win32CreateSurfaceInfo{
-        .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-        .hwnd = glfwGetWin32Window(window)};
-    MTY_CHECK(vkCreateWin32SurfaceKHR(instance,
-        &win32CreateSurfaceInfo,
-        nullptr,
-        &surface));
+    glfwSetWindowIcon(window, 1, &image);
+}
+
+void MtyContext::createSurfaceAndSwapchain() {
+    MTY_CHECK(glfwCreateWindowSurface(instance, window, nullptr, &surface));
+
     VkPhysicalDeviceSurfaceInfo2KHR surfaceInfo{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR,
         .surface = surface};
@@ -64,6 +78,9 @@ void MtyContext::createSurfaceAndSwapchain() {
         &surfaceCount,
         nullptr);
     std::vector<VkSurfaceFormat2KHR> surfaceFormats(surfaceCount);
+    for (size_t i = 0; i < surfaceCount; i++) {
+        surfaceFormats[i].sType = VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR;
+    }
     vkGetPhysicalDeviceSurfaceFormats2KHR(physicalDevice,
         &surfaceInfo,
         &surfaceCount,
@@ -103,9 +120,26 @@ void MtyContext::createSurfaceAndSwapchain() {
 
     VkSwapchainCreateInfoKHR swapchainCreateInfo{
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-
-    };
-    vkCreateSwapchainKHR(device, &swapchainCreateInfo, nullptr, &swapchain);
+        .flags = VkSwapchainCreateFlagsKHR{},
+        .surface = surface,
+        .minImageCount = MAX_FRAMES_IN_SWAPCHAIN,
+        .imageFormat = selectedFormat.surfaceFormat.format,
+        .imageColorSpace = selectedFormat.surfaceFormat.colorSpace,
+        .imageExtent = surfaceCapabilities.surfaceCapabilities.currentExtent,
+        .imageArrayLayers = 1,
+        .imageUsage = VkImageUsageFlagBits::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .imageSharingMode = VkSharingMode::VK_SHARING_MODE_EXCLUSIVE,
+        .preTransform =
+            surfaceCapabilities.surfaceCapabilities.currentTransform,
+        .compositeAlpha =
+            VkCompositeAlphaFlagBitsKHR::VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode = presentMode,
+        .clipped = true,
+        .oldSwapchain = nullptr};
+    MTY_CHECK(vkCreateSwapchainKHR(device,
+        &swapchainCreateInfo,
+        nullptr,
+        &swapchain));
     std::cout << "";
 }
 
@@ -287,6 +321,7 @@ void MtyContext::createInstance() {
 }
 
 void MtyContext::cleanup() {
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
     glfwTerminate();
     vkDestroyDevice(device, nullptr);
