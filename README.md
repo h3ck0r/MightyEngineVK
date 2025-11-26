@@ -5,7 +5,3 @@
 
 Based 3D engine.
 
-
-<img src="./image.png" width="300" />
-
-
