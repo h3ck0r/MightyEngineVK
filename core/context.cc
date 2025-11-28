@@ -2,7 +2,6 @@
 
 #include <vulkan/vulkan_core.h>
 
-
 #define VK_USE_PLATFORM_WIN32_KHR
 #define STB_IMAGE_IMPLEMENTATION
 #define GLFW_INCLUDE_VULKAN
@@ -28,6 +27,7 @@ void MtyContext::run() {
     createInstance();
     createDeviceAndQueue();
     createSurfaceAndSwapchain();
+    createCommandPool();
     loop();
     cleanup();
 }
@@ -36,6 +36,13 @@ void MtyContext::loop() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
     }
+}
+
+void MtyContext::createCommandPool() {
+    VkCommandPoolCreateInfo createInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .queueFamilyIndex = queueFamilyIndexType,
+    };
 }
 
 void MtyContext::initWindow() {
@@ -140,6 +147,40 @@ void MtyContext::createSurfaceAndSwapchain() {
         &swapchainCreateInfo,
         nullptr,
         &swapchain));
+    uint32_t swapchainImageCounts;
+    vkGetSwapchainImagesKHR(device, swapchain, &swapchainImageCounts, nullptr);
+    std::vector<VkImage> swapChainImages(swapchainImageCounts);
+    vkGetSwapchainImagesKHR(device,
+        swapchain,
+        &swapchainImageCounts,
+        swapChainImages.data());
+
+    VkImageSubresourceRange mipMapSubResourceRange{
+        .aspectMask = VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT,
+        .baseMipLevel = 0,
+        .levelCount = 1,
+        .baseArrayLayer = 0,
+        .layerCount = 1};
+    swapchainImageViews.clear();
+    VkImageViewCreateInfo imageViewCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .format = selectedFormat.surfaceFormat.format,
+        .components =
+            {
+                .r = VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
+                .g = VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
+                .b = VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
+                .a = VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
+            },
+        .subresourceRange = mipMapSubResourceRange,
+    };
+
+    for (auto image : swapChainImages) {
+        imageViewCreateInfo.image = image;
+        VkImageView imageView;
+        vkCreateImageView(device, &imageViewCreateInfo, nullptr, &imageView);
+        swapchainImageViews.push_back(imageView);
+    }
     std::cout << "";
 }
 
@@ -186,13 +227,13 @@ void MtyContext::createDeviceAndQueue() {
     vkGetPhysicalDeviceQueueFamilyProperties2(physicalDevice,
         &queueFamilyCount,
         queueFamilyProperties.data());
-    uint32_t selectedQueueFamilyIndex = 0;
+    queueFamilyIndexType = -1;
     for (uint32_t i = 0; i < queueFamilyCount; ++i) {
         if (queueFamilyProperties[i].queueFamilyProperties.queueFlags
                 & VK_QUEUE_GRAPHICS_BIT
             && queueFamilyProperties[i].queueFamilyProperties.queueFlags
                    & VK_QUEUE_COMPUTE_BIT) {
-            selectedQueueFamilyIndex = i;
+            queueFamilyIndexType = i;
             break;
         }
     }
@@ -202,7 +243,7 @@ void MtyContext::createDeviceAndQueue() {
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .queueFamilyIndex = selectedQueueFamilyIndex,
+        .queueFamilyIndex = queueFamilyIndexType,
         .queueCount = 1,
         .pQueuePriorities = queuePriorities,
     };
@@ -258,9 +299,9 @@ void MtyContext::createDeviceAndQueue() {
 
     VkDeviceQueueInfo2 deviceQueueInfo{
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,
-        .queueFamilyIndex = selectedQueueFamilyIndex,
+        .queueFamilyIndex = queueFamilyIndexType,
         .queueIndex = 0};
-    vkGetDeviceQueue2(device, &deviceQueueInfo, &queue);
+    vkGetDeviceQueue2(device, &deviceQueueInfo, &graphicsQueue);
 }
 
 void MtyContext::createInstance() {

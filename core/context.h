@@ -6,6 +6,9 @@
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_win32.h>
 
+#include <cstdint>
+#include <vector>
+
 #include "GLFW/glfw3.h"
 
 #define WINDOW_WIDTH            1920
@@ -35,16 +38,20 @@ struct MtyContext {
     void createInstance();
     void createDeviceAndQueue();
     void createSurfaceAndSwapchain();
+    void createCommandPool();
     void loop();
     void cleanup();
 
     VkInstance instance;
-
     VkPhysicalDevice physicalDevice;
     VkDevice device;
-    VkQueue queue;
+    VkQueue graphicsQueue;
+    uint32_t queueFamilyIndexType;
     VkSurfaceKHR surface;
     VkSwapchainKHR swapchain;
+    VkCommandPool commandPool;
+    std::vector<VkImageView> swapchainImageViews;
+
     GLFWwindow* window;
 };
 }  // namespace mty
