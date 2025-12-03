@@ -8,25 +8,18 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
-# Force the executable output to be in the $<CONFIG> subdirectory
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>")
 
-set(SLANGC_EXECUTABLE "C:/VulkanSDK/1.4.328.1/bin/slangc.exe")
-set(SHADER_FILE ${CMAKE_CURRENT_SOURCE_DIR}/core/shaders/shader.slang)
+set(COMPILE_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/compile.bat)
 set(SHADERS_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/shaders")
+set(SHADERS_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/core/shaders")
 
 add_custom_target(CompileShaders ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADERS_OUT_DIR}
-    COMMAND ${SLANGC_EXECUTABLE} ${SHADER_FILE}
-        -target spirv
-        -profile spirv_1_4
-        -emit-spirv-directly
-        -fvk-use-entrypoint-name
-        -entry vertMain -entry fragMain
-        -o ${SHADERS_OUT_DIR}/slang.spv
-    COMMENT "Compiling Slang shaders!!!!"
+    COMMAND ${COMPILE_SCRIPT} "${SHADERS_SRC_DIR}" "${SHADERS_OUT_DIR}"
+    COMMENT "Running shader compilation script (compile.bat)!"
     VERBATIM
 )
 

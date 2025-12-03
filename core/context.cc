@@ -27,22 +27,175 @@ void MtyContext::run() {
     createInstance();
     createDeviceAndQueue();
     createSurfaceAndSwapchain();
-    createCommandPool();
+    createCommandPoolAndDescriptorPool();
+    createRayTraycingPipeline();
     loop();
     cleanup();
+}
+
+void MtyContext::createCommandPoolAndDescriptorPool() {
+    VkCommandPoolCreateInfo commandPoolCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VkCommandPoolCreateFlagBits::
+            VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .queueFamilyIndex = queueFamilyIndex,
+    };
+    vkCreateCommandPool(device, &commandPoolCreateInfo, nullptr, &commandPool);
+
+    // If need new shader data add here desc
+    std::vector<VkDescriptorPoolSize> descriptorPoolSizes = {
+        {VkDescriptorType::VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+            1},  // FOr TLAS
+        {VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
+        {VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
+    };
+
+    VkDescriptorPoolCreateInfo descriptorPoolCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .flags = VkDescriptorPoolCreateFlagBits::
+            VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+        .maxSets = 1,
+        .poolSizeCount = static_cast<uint32_t>(descriptorPoolSizes.size()),
+        .pPoolSizes = descriptorPoolSizes.data()};
+    vkCreateDescriptorPool(device,
+        &descriptorPoolCreateInfo,
+        nullptr,
+        &descriptorPool);
+}
+
+void MtyContext::createRayTraycingPipeline() {
+    std::vector<std::vector<char>> modulesCode = {readFile(
+                                                      "./shaders/raygen.spv"),
+        readFile("./shaders/miss.spv"),
+        readFile("./shaders/closesthit.spv")};
+
+    for (const auto& code : modulesCode) {
+        VkShaderModule shaderModule;
+        VkShaderModuleCreateInfo shaderModuleCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            .codeSize = code.size(),
+            .pCode = reinterpret_cast<const uint32_t*>(code.data())};
+        vkCreateShaderModule(device,
+            &shaderModuleCreateInfo,
+            nullptr,
+            &shaderModule);
+        shaderModules.push_back(shaderModule);
+    }
+
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStages{
+        VkPipelineShaderStageCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VkShaderStageFlagBits::VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+            .module = shaderModules[0],
+            .pName = "main"},
+        VkPipelineShaderStageCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VkShaderStageFlagBits::VK_SHADER_STAGE_MISS_BIT_KHR,
+            .module = shaderModules[1],
+            .pName = "main"},
+        VkPipelineShaderStageCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VkShaderStageFlagBits::VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+            .module = shaderModules[2],
+            .pName = "main"}};
+
+    std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{
+        VkRayTracingShaderGroupCreateInfoKHR{
+            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+            .type = VkRayTracingShaderGroupTypeKHR::
+                VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+            .generalShader = 0,
+            .closestHitShader = VK_SHADER_UNUSED_KHR,
+            .closestHitShader = VK_SHADER_UNUSED_KHR,
+            .intersectionShader = VK_SHADER_UNUSED_KHR},
+        VkRayTracingShaderGroupCreateInfoKHR{
+            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+            .type = VkRayTracingShaderGroupTypeKHR::
+                VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+            .generalShader = 1,
+            .closestHitShader = VK_SHADER_UNUSED_KHR,
+            .closestHitShader = VK_SHADER_UNUSED_KHR,
+            .intersectionShader = VK_SHADER_UNUSED_KHR},
+        VkRayTracingShaderGroupCreateInfoKHR{
+            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+            .type = VkRayTracingShaderGroupTypeKHR::
+                VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+            .generalShader = VK_SHADER_UNUSED_KHR,
+            .closestHitShader = 2,
+            .closestHitShader = VK_SHADER_UNUSED_KHR,
+            .intersectionShader = VK_SHADER_UNUSED_KHR}};
+
+    std::vector<VkDescriptorSetLayoutBinding> bindings{
+        // 0 = TLAS
+        VkDescriptorSetLayoutBinding{.binding = 0,
+            .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+            .descriptorCount = 1,
+            .stageFlags =
+                VkShaderStageFlagBits::VK_SHADER_STAGE_RAYGEN_BIT_KHR},
+        // 1 = Storage Image
+        VkDescriptorSetLayoutBinding{.binding = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorCount = 1,
+            .stageFlags =
+                VkShaderStageFlagBits::VK_SHADER_STAGE_RAYGEN_BIT_KHR},
+        // 2 = Vertices
+        VkDescriptorSetLayoutBinding{.binding = 2,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorCount = 1,
+            .stageFlags =
+                VkShaderStageFlagBits::VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
+        // 3 = Indices
+        VkDescriptorSetLayoutBinding{.binding = 3,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorCount = 1,
+            .stageFlags =
+                VkShaderStageFlagBits::VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
+        // 4 = Material
+        VkDescriptorSetLayoutBinding{.binding = 4,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorCount = 1,
+            .stageFlags =
+                VkShaderStageFlagBits::VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
+    };
+
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = static_cast<uint32_t>(bindings.size()),
+        .pBindings = bindings.data()};
+    vkCreateDescriptorSetLayout(device,
+        &descriptorSetLayoutCreateInfo,
+        nullptr,
+        &descriptorSetLayout);
+
+    VkPushConstantRange pushRange{
+        .stageFlags = VkShaderStageFlagBits::VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+        .offset = 0,
+        .size = sizeof(int)};
+
+    // VkRayTracingPipelineCreateInfoKHR raytracingPipelineCreateInfo{
+    //     .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+    //     .stageCount = static_cast<uint32_t>(shaderStages.size()),
+    //     .pStages = shaderStages.data(),
+    //     .groupCount = static_cast<uint32_t>(shaderGroups.size()),
+    //     .pGroups = shaderGroups.data(),
+    //     .layout = descriptorSetLayout,
+    //     .maxPipelineRayRecursionDepth =
+    //         4,  // change this to a higher or lower values
+
+    // };
+    // vkCreateRayTracingPipelinesKHR(device,
+    //     VkDeferredOperationKHR deferredOperation,
+    //     VkPipelineCache pipelineCache,
+    //     1,
+    //     const VkRayTracingPipelineCreateInfoKHR* pCreateInfos,
+    //     const VkAllocationCallbacks* pAllocator,
+    //     VkPipeline* pPipelines)
 }
 
 void MtyContext::loop() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
     }
-}
-
-void MtyContext::createCommandPool() {
-    VkCommandPoolCreateInfo createInfo{
-        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .queueFamilyIndex = queueFamilyIndexType,
-    };
 }
 
 void MtyContext::initWindow() {
@@ -164,6 +317,7 @@ void MtyContext::createSurfaceAndSwapchain() {
     swapchainImageViews.clear();
     VkImageViewCreateInfo imageViewCreateInfo{
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
         .format = selectedFormat.surfaceFormat.format,
         .components =
             {
@@ -172,6 +326,7 @@ void MtyContext::createSurfaceAndSwapchain() {
                 .b = VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
                 .a = VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
             },
+
         .subresourceRange = mipMapSubResourceRange,
     };
 
@@ -227,13 +382,13 @@ void MtyContext::createDeviceAndQueue() {
     vkGetPhysicalDeviceQueueFamilyProperties2(physicalDevice,
         &queueFamilyCount,
         queueFamilyProperties.data());
-    queueFamilyIndexType = -1;
+    queueFamilyIndex = -1;
     for (uint32_t i = 0; i < queueFamilyCount; ++i) {
         if (queueFamilyProperties[i].queueFamilyProperties.queueFlags
                 & VK_QUEUE_GRAPHICS_BIT
             && queueFamilyProperties[i].queueFamilyProperties.queueFlags
                    & VK_QUEUE_COMPUTE_BIT) {
-            queueFamilyIndexType = i;
+            queueFamilyIndex = i;
             break;
         }
     }
@@ -243,7 +398,7 @@ void MtyContext::createDeviceAndQueue() {
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .queueFamilyIndex = queueFamilyIndexType,
+        .queueFamilyIndex = queueFamilyIndex,
         .queueCount = 1,
         .pQueuePriorities = queuePriorities,
     };
@@ -299,7 +454,7 @@ void MtyContext::createDeviceAndQueue() {
 
     VkDeviceQueueInfo2 deviceQueueInfo{
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,
-        .queueFamilyIndex = queueFamilyIndexType,
+        .queueFamilyIndex = queueFamilyIndex,
         .queueIndex = 0};
     vkGetDeviceQueue2(device, &deviceQueueInfo, &graphicsQueue);
 }
@@ -362,6 +517,15 @@ void MtyContext::createInstance() {
 }
 
 void MtyContext::cleanup() {
+    for (const auto& shaderModule : shaderModules) {
+        vkDestroyShaderModule(device, shaderModule, nullptr);
+    }
+    vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+    for (const auto& imageView : swapchainImageViews) {
+        vkDestroyImageView(device, imageView, nullptr);
+    }
+    vkDestroyCommandPool(device, commandPool, nullptr);
+    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
     vkDestroySwapchainKHR(device, swapchain, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
     glfwTerminate();

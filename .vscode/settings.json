@@ -95,6 +95,7 @@
         "codecvt": "cpp",
         "filesystem": "cpp"
     },
+    "glsllint.glslangValidatorPath": "C:\\VulkanSDK",
     "C_Cpp.codeAnalysis.clangTidy.enabled": true,
     "C_Cpp.codeAnalysis.clangTidy.path": "clang-tidy",
     "C_Cpp.codeAnalysis.clangTidy.config": "file"

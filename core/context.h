@@ -21,7 +21,8 @@ inline constexpr const char* INSTANCE_EXTENSIONS[] = {
     VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
     VK_KHR_SURFACE_EXTENSION_NAME,
     VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME,
-    VK_KHR_WIN32_SURFACE_EXTENSION_NAME};
+    VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+};
 inline constexpr const char* INSTANCE_LAYERS[] = {
     "VK_LAYER_KHRONOS_validation"};
 inline constexpr const VkValidationFeatureEnableEXT VALIDATION_EXTENSIONS[] = {
@@ -30,7 +31,15 @@ inline constexpr const VkValidationFeatureEnableEXT VALIDATION_EXTENSIONS[] = {
     VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
 };
 inline constexpr const char* LOGICAL_DEVICE_EXTENSIONS[] = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
+    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+    VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+    VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+};
+inline constexpr const char* PHYSICAL_DEVICE_FEATURES[] = {
+
+};
 
 struct MtyContext {
     void run();
@@ -38,7 +47,8 @@ struct MtyContext {
     void createInstance();
     void createDeviceAndQueue();
     void createSurfaceAndSwapchain();
-    void createCommandPool();
+    void createCommandPoolAndDescriptorPool();
+    void createRayTraycingPipeline();
     void loop();
     void cleanup();
 
@@ -46,11 +56,15 @@ struct MtyContext {
     VkPhysicalDevice physicalDevice;
     VkDevice device;
     VkQueue graphicsQueue;
-    uint32_t queueFamilyIndexType;
+    uint32_t queueFamilyIndex;
     VkSurfaceKHR surface;
     VkSwapchainKHR swapchain;
     VkCommandPool commandPool;
+    VkDescriptorPool descriptorPool;
+    VkDescriptorSetLayout descriptorSetLayout;
+    VkPipeline pipeline;
     std::vector<VkImageView> swapchainImageViews;
+    std::vector<VkShaderModule> shaderModules;
 
     GLFWwindow* window;
 };
