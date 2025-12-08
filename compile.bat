@@ -1,17 +1,20 @@
 @echo off
-set "SLANGC_PATH=C:/VulkanSDK/1.4.328.1/bin/slangc.exe"
+set "GLSLC_PATH=C:/VulkanSDK/1.4.328.1/bin/glslc.exe"
 set "SHADER_DIR=%~1"
 set "SHADER_OUT_DIR=%~2"
 
 echo Compiling all .slang shaders in %SHADER_DIR%...
 
-for %%f in ("%SHADER_DIR%\*.slang") do (
-    set "INPUT_FILE=%%f"
-    set "OUTPUT_NAME=%%~nf.spv"
-    
-    echo Compiling: %%f
-    
-    call :COMPILE_SHADER "%%f" "%%~nf.spv"
+if not exist "%SHADER_OUT_DIR%" mkdir "%SHADER_OUT_DIR%"
+for %%e in (.rgen, .rmiss, .rchit) do (
+    for %%f in ("%SHADER_DIR%\*%%e") do (
+        set "INPUT_FILE=%%f"
+        set "OUTPUT_NAME=%%~nf%%e.spv"
+        
+        echo Compiling: %%f
+        
+        call :COMPILE_SHADER "%%f" %%~nf%%e.spv
+    )
 )
 
 echo.
@@ -19,7 +22,7 @@ echo Shader compilation complete.
 goto :EOF
 
 :COMPILE_SHADER
-"%SLANGC_PATH%" %1 -target spirv -profile spirv_1_4 -emit-spirv-directly -fvk-use-entrypoint-name -entry main -o "%SHADER_OUT_DIR%/%2"
+"%GLSLC_PATH%" %1 -o "%SHADER_OUT_DIR%\%2"
     
 if errorlevel 1 (
     echo ERROR: Compilation failed for %1

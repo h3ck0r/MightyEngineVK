@@ -49,7 +49,9 @@ struct MtyContext {
     void createSurfaceAndSwapchain();
     void createCommandPoolAndDescriptorPool();
     void createRayTraycingPipeline();
+    void loadFunctions();
     void loop();
+    void render();
     void cleanup();
 
     VkInstance instance;
@@ -62,11 +64,15 @@ struct MtyContext {
     VkCommandPool commandPool;
     VkDescriptorPool descriptorPool;
     VkDescriptorSetLayout descriptorSetLayout;
+    VkPipelineLayout pipelineLayout;
     VkPipeline pipeline;
     std::vector<VkImageView> swapchainImageViews;
     std::vector<VkShaderModule> shaderModules;
 
     GLFWwindow* window;
+
+    // runtime linkage functions
+    PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR_ptr = nullptr;
 };
 }  // namespace mty
 

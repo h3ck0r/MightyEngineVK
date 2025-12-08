@@ -1,15 +1,14 @@
 #include "context.h"
 
-#include <vulkan/vulkan_core.h>
-
 #define VK_USE_PLATFORM_WIN32_KHR
 #define STB_IMAGE_IMPLEMENTATION
 #define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 #include <stb_image.h>
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_win32.h>
 
 #include <cstddef>
@@ -26,11 +25,19 @@ void MtyContext::run() {
     initWindow();
     createInstance();
     createDeviceAndQueue();
+    loadFunctions();
     createSurfaceAndSwapchain();
     createCommandPoolAndDescriptorPool();
     createRayTraycingPipeline();
     loop();
     cleanup();
+}
+
+// runtime linkage
+void MtyContext::loadFunctions() {
+    vkCreateRayTracingPipelinesKHR_ptr =
+        (PFN_vkCreateRayTracingPipelinesKHR) vkGetDeviceProcAddr(device,
+            "vkCreateRayTracingPipelinesKHR");
 }
 
 void MtyContext::createCommandPoolAndDescriptorPool() {
@@ -64,10 +71,11 @@ void MtyContext::createCommandPoolAndDescriptorPool() {
 }
 
 void MtyContext::createRayTraycingPipeline() {
-    std::vector<std::vector<char>> modulesCode = {readFile(
-                                                      "./shaders/raygen.spv"),
-        readFile("./shaders/miss.spv"),
-        readFile("./shaders/closesthit.spv")};
+    std::vector<std::vector<char>> modulesCode = {
+        readFile("./shaders/raygen.rgen.spv"),
+        readFile("./shaders/miss.rmiss.spv"),
+        readFile("./shaders/closesthit.rchit.spv"),
+    };
 
     for (const auto& code : modulesCode) {
         VkShaderModule shaderModule;
@@ -106,7 +114,7 @@ void MtyContext::createRayTraycingPipeline() {
                 VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
             .generalShader = 0,
             .closestHitShader = VK_SHADER_UNUSED_KHR,
-            .closestHitShader = VK_SHADER_UNUSED_KHR,
+            .anyHitShader = VK_SHADER_UNUSED_KHR,
             .intersectionShader = VK_SHADER_UNUSED_KHR},
         VkRayTracingShaderGroupCreateInfoKHR{
             .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
@@ -114,7 +122,7 @@ void MtyContext::createRayTraycingPipeline() {
                 VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
             .generalShader = 1,
             .closestHitShader = VK_SHADER_UNUSED_KHR,
-            .closestHitShader = VK_SHADER_UNUSED_KHR,
+            .anyHitShader = VK_SHADER_UNUSED_KHR,
             .intersectionShader = VK_SHADER_UNUSED_KHR},
         VkRayTracingShaderGroupCreateInfoKHR{
             .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
@@ -122,7 +130,7 @@ void MtyContext::createRayTraycingPipeline() {
                 VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
             .generalShader = VK_SHADER_UNUSED_KHR,
             .closestHitShader = 2,
-            .closestHitShader = VK_SHADER_UNUSED_KHR,
+            .anyHitShader = VK_SHADER_UNUSED_KHR,
             .intersectionShader = VK_SHADER_UNUSED_KHR}};
 
     std::vector<VkDescriptorSetLayoutBinding> bindings{
@@ -162,40 +170,54 @@ void MtyContext::createRayTraycingPipeline() {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .bindingCount = static_cast<uint32_t>(bindings.size()),
         .pBindings = bindings.data()};
-    vkCreateDescriptorSetLayout(device,
+    MTY_CHECK(vkCreateDescriptorSetLayout(device,
         &descriptorSetLayoutCreateInfo,
         nullptr,
-        &descriptorSetLayout);
+        &descriptorSetLayout));
 
     VkPushConstantRange pushRange{
         .stageFlags = VkShaderStageFlagBits::VK_SHADER_STAGE_RAYGEN_BIT_KHR,
         .offset = 0,
         .size = sizeof(int)};
 
-    // VkRayTracingPipelineCreateInfoKHR raytracingPipelineCreateInfo{
-    //     .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
-    //     .stageCount = static_cast<uint32_t>(shaderStages.size()),
-    //     .pStages = shaderStages.data(),
-    //     .groupCount = static_cast<uint32_t>(shaderGroups.size()),
-    //     .pGroups = shaderGroups.data(),
-    //     .layout = descriptorSetLayout,
-    //     .maxPipelineRayRecursionDepth =
-    //         4,  // change this to a higher or lower values
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 1,
+        .pSetLayouts = &descriptorSetLayout,
+    };
 
-    // };
-    // vkCreateRayTracingPipelinesKHR(device,
-    //     VkDeferredOperationKHR deferredOperation,
-    //     VkPipelineCache pipelineCache,
-    //     1,
-    //     const VkRayTracingPipelineCreateInfoKHR* pCreateInfos,
-    //     const VkAllocationCallbacks* pAllocator,
-    //     VkPipeline* pPipelines)
+    MTY_CHECK(vkCreatePipelineLayout(device,
+        &pipelineLayoutCreateInfo,
+        nullptr,
+        &pipelineLayout));
+
+    VkRayTracingPipelineCreateInfoKHR raytracingPipelineCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+        .stageCount = static_cast<uint32_t>(shaderStages.size()),
+        .pStages = shaderStages.data(),
+        .groupCount = static_cast<uint32_t>(shaderGroups.size()),
+        .pGroups = shaderGroups.data(),
+        .maxPipelineRayRecursionDepth = 2,
+        .layout = pipelineLayout,
+
+    };
+    MTY_CHECK(vkCreateRayTracingPipelinesKHR_ptr(device,
+        nullptr,
+        nullptr,
+        1,
+        &raytracingPipelineCreateInfo,
+        nullptr,
+        &pipeline));
 }
 
 void MtyContext::loop() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
+        render();
     }
+}
+
+void MtyContext::render(){
 }
 
 void MtyContext::initWindow() {
@@ -403,8 +425,15 @@ void MtyContext::createDeviceAndQueue() {
         .pQueuePriorities = queuePriorities,
     };
 
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR
+        physicalDeviceRayTracingPipelineFeatures{
+            .sType =
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
+            .rayTracingPipeline = VK_TRUE};
+
     VkPhysicalDevice8BitStorageFeatures device8BitStorageFeatures{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES,
+        .pNext = &physicalDeviceRayTracingPipelineFeatures,
         .storageBuffer8BitAccess = VK_TRUE};
 
     VkPhysicalDeviceScalarBlockLayoutFeatures deviceScalarBlockLayoutFeatures{
@@ -517,6 +546,8 @@ void MtyContext::createInstance() {
 }
 
 void MtyContext::cleanup() {
+    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+    vkDestroyPipeline(device, pipeline, nullptr);
     for (const auto& shaderModule : shaderModules) {
         vkDestroyShaderModule(device, shaderModule, nullptr);
     }
