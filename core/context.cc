@@ -9,7 +9,6 @@
 #include <stb_image.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
-#include <vulkan/vulkan_win32.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -28,9 +27,73 @@ void MtyContext::run() {
     loadFunctions();
     createSurfaceAndSwapchain();
     createCommandPoolAndDescriptorPool();
+    createDescriptorLayoutAndSet();
+    createRaytracingBindingTable();
     createRayTraycingPipeline();
+    createSemaphoreAndFence();
     loop();
     cleanup();
+}
+
+MtyBuffer MtyContext::createBuffer(MtyBufferType type,
+    VkDeviceSize,
+    const void* data) {
+        VkBufferUsageFlags2 usage;
+        using Usage = VkBufferUsageFlagBits2;
+        using Memory = VkMemoryPropertyFlagBits;
+
+        if(type == MtyBufferType::AccelInput){
+            
+        }
+    }
+
+void MtyContext::createDescriptorLayoutAndSet() {
+    std::vector<VkDescriptorSetLayoutBinding> bindings{
+        // 0 = TLAS
+        VkDescriptorSetLayoutBinding{.binding = 0,
+            .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+            .descriptorCount = 1,
+            .stageFlags =
+                VkShaderStageFlagBits::VK_SHADER_STAGE_RAYGEN_BIT_KHR},
+        // 1 = Storage Image
+        VkDescriptorSetLayoutBinding{.binding = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorCount = 1,
+            .stageFlags =
+                VkShaderStageFlagBits::VK_SHADER_STAGE_RAYGEN_BIT_KHR},
+        // 2 = Vertices
+        VkDescriptorSetLayoutBinding{.binding = 2,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorCount = 1,
+            .stageFlags =
+                VkShaderStageFlagBits::VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
+        // 3 = Indices
+        VkDescriptorSetLayoutBinding{.binding = 3,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorCount = 1,
+            .stageFlags =
+                VkShaderStageFlagBits::VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
+        // 4 = Material
+        VkDescriptorSetLayoutBinding{.binding = 4,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorCount = 1,
+            .stageFlags =
+                VkShaderStageFlagBits::VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
+    };
+
+    // VkPushConstantRange pushRange{
+    //     .stageFlags = VkShaderStageFlagBits::VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+    //     .offset = 0,
+    //     .size = sizeof(int)};
+
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = static_cast<uint32_t>(bindings.size()),
+        .pBindings = bindings.data()};
+    MTY_CHECK(vkCreateDescriptorSetLayout(device,
+        &descriptorSetLayoutCreateInfo,
+        nullptr,
+        &descriptorSetLayout));
 }
 
 // runtime linkage
@@ -40,6 +103,16 @@ void MtyContext::loadFunctions() {
             "vkCreateRayTracingPipelinesKHR");
 }
 
+void MtyContext::createSemaphoreAndFence() {
+    VkSemaphoreCreateInfo semaphoreCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+    };
+    MTY_CHECK(
+        vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &semaphore));
+
+    // create fence
+}
+
 void MtyContext::createCommandPoolAndDescriptorPool() {
     VkCommandPoolCreateInfo commandPoolCreateInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -47,7 +120,10 @@ void MtyContext::createCommandPoolAndDescriptorPool() {
             VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
         .queueFamilyIndex = queueFamilyIndex,
     };
-    vkCreateCommandPool(device, &commandPoolCreateInfo, nullptr, &commandPool);
+    MTY_CHECK(vkCreateCommandPool(device,
+        &commandPoolCreateInfo,
+        nullptr,
+        &commandPool));
 
     // If need new shader data add here desc
     std::vector<VkDescriptorPoolSize> descriptorPoolSizes = {
@@ -64,10 +140,10 @@ void MtyContext::createCommandPoolAndDescriptorPool() {
         .maxSets = 1,
         .poolSizeCount = static_cast<uint32_t>(descriptorPoolSizes.size()),
         .pPoolSizes = descriptorPoolSizes.data()};
-    vkCreateDescriptorPool(device,
+    MTY_CHECK(vkCreateDescriptorPool(device,
         &descriptorPoolCreateInfo,
         nullptr,
-        &descriptorPool);
+        &descriptorPool));
 }
 
 void MtyContext::createRayTraycingPipeline() {
@@ -83,10 +159,10 @@ void MtyContext::createRayTraycingPipeline() {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = code.size(),
             .pCode = reinterpret_cast<const uint32_t*>(code.data())};
-        vkCreateShaderModule(device,
+        MTY_CHECK(vkCreateShaderModule(device,
             &shaderModuleCreateInfo,
             nullptr,
-            &shaderModule);
+            &shaderModule));
         shaderModules.push_back(shaderModule);
     }
 
@@ -133,53 +209,6 @@ void MtyContext::createRayTraycingPipeline() {
             .anyHitShader = VK_SHADER_UNUSED_KHR,
             .intersectionShader = VK_SHADER_UNUSED_KHR}};
 
-    std::vector<VkDescriptorSetLayoutBinding> bindings{
-        // 0 = TLAS
-        VkDescriptorSetLayoutBinding{.binding = 0,
-            .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-            .descriptorCount = 1,
-            .stageFlags =
-                VkShaderStageFlagBits::VK_SHADER_STAGE_RAYGEN_BIT_KHR},
-        // 1 = Storage Image
-        VkDescriptorSetLayoutBinding{.binding = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            .descriptorCount = 1,
-            .stageFlags =
-                VkShaderStageFlagBits::VK_SHADER_STAGE_RAYGEN_BIT_KHR},
-        // 2 = Vertices
-        VkDescriptorSetLayoutBinding{.binding = 2,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            .descriptorCount = 1,
-            .stageFlags =
-                VkShaderStageFlagBits::VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
-        // 3 = Indices
-        VkDescriptorSetLayoutBinding{.binding = 3,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            .descriptorCount = 1,
-            .stageFlags =
-                VkShaderStageFlagBits::VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
-        // 4 = Material
-        VkDescriptorSetLayoutBinding{.binding = 4,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            .descriptorCount = 1,
-            .stageFlags =
-                VkShaderStageFlagBits::VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
-    };
-
-    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = static_cast<uint32_t>(bindings.size()),
-        .pBindings = bindings.data()};
-    MTY_CHECK(vkCreateDescriptorSetLayout(device,
-        &descriptorSetLayoutCreateInfo,
-        nullptr,
-        &descriptorSetLayout));
-
-    VkPushConstantRange pushRange{
-        .stageFlags = VkShaderStageFlagBits::VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-        .offset = 0,
-        .size = sizeof(int)};
-
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = 1,
@@ -208,6 +237,42 @@ void MtyContext::createRayTraycingPipeline() {
         &raytracingPipelineCreateInfo,
         nullptr,
         &pipeline));
+
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = commandPool,
+        .commandBufferCount = MAX_FRAMES_IN_SWAPCHAIN,
+    };
+    commandBuffers.resize(MAX_FRAMES_IN_SWAPCHAIN);
+    MTY_CHECK(vkAllocateCommandBuffers(device,
+        &commandBufferAllocateInfo,
+        commandBuffers.data()));
+
+    VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtPipelineProperties{
+        .sType =
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,
+        .pNext = nullptr,
+    };
+    VkPhysicalDeviceProperties2 physicalDeviceProperties{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+        .pNext = &rtPipelineProperties,
+    };
+    vkGetPhysicalDeviceProperties2(physicalDevice, &physicalDeviceProperties);
+
+    uint32_t handleSize = rtPipelineProperties.shaderGroupHandleSize;
+    uint32_t handleSizeAligned =
+        rtPipelineProperties.shaderGroupHandleAlignment;
+    uint32_t groupCount = static_cast<uint32_t>(shaderGroups.size());
+    uint32_t sbtSize = groupCount * handleSizeAligned;
+
+    std::vector<uint8_t> handleStorage(sbtSize);
+
+    MTY_CHECK(vkGetRayTracingShaderGroupHandlesKHR(device,
+        pipeline,
+        0,
+        groupCount,
+        sbtSize,
+        handleStorage.data()));
 }
 
 void MtyContext::loop() {
@@ -217,7 +282,44 @@ void MtyContext::loop() {
     }
 }
 
-void MtyContext::render(){
+VkDescriptorSet MtyContext::allocateDescSet(
+    VkDescriptorSetLayout descriptorSetLayout) {
+    VkDescriptorSetAllocateInfo descriptorSetAllocateInfo{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = descriptorPool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &descriptorSetLayout,
+    };
+    VkDescriptorSet descriptorSet;
+    MTY_CHECK(vkAllocateDescriptorSets(device,
+        &descriptorSetAllocateInfo,
+        &descriptorSet));
+    return descriptorSet;
+}
+
+void MtyContext::render() {
+    MTY_CHECK(vkAcquireNextImageKHR(device,
+        swapchain,
+        UINT64_MAX,
+        semaphore,
+        nullptr,
+        &imageIndex));
+
+    VkCommandBuffer commandBuffer = commandBuffers[imageIndex];
+
+    VkCommandBufferBeginInfo commandBeginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+    };
+    vkBeginCommandBuffer(commandBuffer, &commandBeginInfo);
+    vkCmdBindPipeline(commandBuffer,
+        VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
+        pipeline);
+
+    VkBindDescriptorSetsInfo bindDescriptorSetInfo{
+        .sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO,
+        // .pDescriptorSets =
+    };
+    // vkCmdBindDescriptorSets2(commandBuffer, )
 }
 
 void MtyContext::initWindow() {
@@ -250,23 +352,23 @@ void MtyContext::createSurfaceAndSwapchain() {
         .surface = surface};
     VkSurfaceCapabilities2KHR surfaceCapabilities{
         .sType = VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR};
-    vkGetPhysicalDeviceSurfaceCapabilities2KHR(physicalDevice,
+    MTY_CHECK(vkGetPhysicalDeviceSurfaceCapabilities2KHR(physicalDevice,
         &surfaceInfo,
-        &surfaceCapabilities);
+        &surfaceCapabilities));
 
     uint32_t surfaceCount = 0;
-    vkGetPhysicalDeviceSurfaceFormats2KHR(physicalDevice,
+    MTY_CHECK(vkGetPhysicalDeviceSurfaceFormats2KHR(physicalDevice,
         &surfaceInfo,
         &surfaceCount,
-        nullptr);
+        nullptr));
     std::vector<VkSurfaceFormat2KHR> surfaceFormats(surfaceCount);
     for (size_t i = 0; i < surfaceCount; i++) {
         surfaceFormats[i].sType = VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR;
     }
-    vkGetPhysicalDeviceSurfaceFormats2KHR(physicalDevice,
+    MTY_CHECK(vkGetPhysicalDeviceSurfaceFormats2KHR(physicalDevice,
         &surfaceInfo,
         &surfaceCount,
-        surfaceFormats.data());
+        surfaceFormats.data()));
     VkSurfaceFormat2KHR selectedFormat{
         .sType = VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR};
     for (const auto& availableFormat : surfaceFormats) {
@@ -279,15 +381,15 @@ void MtyContext::createSurfaceAndSwapchain() {
     }
 
     uint32_t presentModesCount = 0;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice,
+    MTY_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice,
         surface,
         &presentModesCount,
-        nullptr);
+        nullptr));
     std::vector<VkPresentModeKHR> presentModes(presentModesCount);
-    vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice,
+    MTY_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice,
         surface,
         &presentModesCount,
-        presentModes.data());
+        presentModes.data()));
     VkPresentModeKHR presentMode;
     if (std::find(presentModes.begin(),
             presentModes.end(),
@@ -296,7 +398,7 @@ void MtyContext::createSurfaceAndSwapchain() {
         // Tripple buffering
         presentMode = VkPresentModeKHR::VK_PRESENT_MODE_MAILBOX_KHR;
     } else {
-        // V-Sync
+        // Double buffering
         presentMode = VkPresentModeKHR::VK_PRESENT_MODE_FIFO_KHR;
     }
 
@@ -323,17 +425,21 @@ void MtyContext::createSurfaceAndSwapchain() {
         nullptr,
         &swapchain));
     uint32_t swapchainImageCounts;
-    vkGetSwapchainImagesKHR(device, swapchain, &swapchainImageCounts, nullptr);
-    std::vector<VkImage> swapChainImages(swapchainImageCounts);
-    vkGetSwapchainImagesKHR(device,
+    MTY_CHECK(vkGetSwapchainImagesKHR(device,
         swapchain,
         &swapchainImageCounts,
-        swapChainImages.data());
+        nullptr));
+    std::vector<VkImage> swapChainImages(swapchainImageCounts);
+    MTY_CHECK(vkGetSwapchainImagesKHR(device,
+        swapchain,
+        &swapchainImageCounts,
+        swapChainImages.data()));
 
+    // no mipmap for swapchain images
     VkImageSubresourceRange mipMapSubResourceRange{
         .aspectMask = VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT,
         .baseMipLevel = 0,
-        .levelCount = 1,
+        .levelCount = 1,  // only base level, no mipmap
         .baseArrayLayer = 0,
         .layerCount = 1};
     swapchainImageViews.clear();
@@ -343,6 +449,7 @@ void MtyContext::createSurfaceAndSwapchain() {
         .format = selectedFormat.surfaceFormat.format,
         .components =
             {
+                // IDENTITY == use r as red, g as green, b as blue,
                 .r = VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
                 .g = VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
                 .b = VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
@@ -355,10 +462,12 @@ void MtyContext::createSurfaceAndSwapchain() {
     for (auto image : swapChainImages) {
         imageViewCreateInfo.image = image;
         VkImageView imageView;
-        vkCreateImageView(device, &imageViewCreateInfo, nullptr, &imageView);
+        MTY_CHECK(vkCreateImageView(device,
+            &imageViewCreateInfo,
+            nullptr,
+            &imageView));
         swapchainImageViews.push_back(imageView);
     }
-    std::cout << "";
 }
 
 void MtyContext::createDeviceAndQueue() {
@@ -390,6 +499,7 @@ void MtyContext::createDeviceAndQueue() {
         std::cout << "  Device ID: " << properties.deviceID << "\n";
     }
 
+    // provide a correct device sorting later
     physicalDevice = physicalDevices.front();
 
     uint32_t queueFamilyCount = 0;
@@ -559,9 +669,10 @@ void MtyContext::cleanup() {
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);
     vkDestroySwapchainKHR(device, swapchain, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
-    glfwTerminate();
     vkDestroyDevice(device, nullptr);
     vkDestroyInstance(instance, nullptr);
+    glfwDestroyWindow(window);
+    glfwTerminate();
 }
 
 }  // namespace mty

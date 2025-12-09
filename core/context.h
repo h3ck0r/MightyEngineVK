@@ -41,7 +41,21 @@ inline constexpr const char* PHYSICAL_DEVICE_FEATURES[] = {
 
 };
 
+enum class MtyBufferType {
+    Scratch,
+    AccelInput,
+    AccelStorage,
+    ShaderBindingTable
+};
+struct MtyBuffer {
+    VkBuffer buffer;
+    VkDeviceMemory memory;
+    VkDescriptorBufferInfo descBufferInfo;
+    uint64_t deviceAddress = 0;
+};
+
 struct MtyContext {
+    // core func
     void run();
     void initWindow();
     void createInstance();
@@ -50,9 +64,18 @@ struct MtyContext {
     void createCommandPoolAndDescriptorPool();
     void createRayTraycingPipeline();
     void loadFunctions();
+    void createDescriptorLayoutAndSet();
+    void createRaytracingBindingTable();
+    void createSemaphoreAndFence();
     void loop();
     void render();
     void cleanup();
+
+    // utils
+    MtyBuffer createBuffer(MtyBufferType type,
+        VkDeviceSize,
+        const void* data = nullptr);
+    VkDescriptorSet allocateDescSet(VkDescriptorSetLayout descriptorSetLayout);
 
     VkInstance instance;
     VkPhysicalDevice physicalDevice;
@@ -64,15 +87,20 @@ struct MtyContext {
     VkCommandPool commandPool;
     VkDescriptorPool descriptorPool;
     VkDescriptorSetLayout descriptorSetLayout;
+    VkSemaphore semaphore;
     VkPipelineLayout pipelineLayout;
     VkPipeline pipeline;
+    std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkImageView> swapchainImageViews;
     std::vector<VkShaderModule> shaderModules;
 
     GLFWwindow* window;
 
+    uint32_t imageIndex = 0;
+
     // runtime linkage functions
-    PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR_ptr = nullptr;
+    PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR_ptr =
+        nullptr;
 };
 }  // namespace mty
 
