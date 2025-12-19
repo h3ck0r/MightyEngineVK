@@ -22,7 +22,7 @@ echo Shader compilation complete.
 goto :EOF
 
 :COMPILE_SHADER
-"%GLSLC_PATH%" %1 -o "%SHADER_OUT_DIR%\%2"
+"%GLSLC_PATH%" --target-env=vulkan1.3 %1 -o "%SHADER_OUT_DIR%\%2"
     
 if errorlevel 1 (
     echo ERROR: Compilation failed for %1
