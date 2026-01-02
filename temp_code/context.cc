@@ -1,12 +1,10 @@
 #define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+
 #include <fstream>
 #include <functional>
 #include <iostream>
 #include <string>
-
-#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
-#include <GLFW/glfw3.h>
-
 #include <vulkan/vulkan.hpp>
 
 #define TINYOBJLOADER_IMPLEMENTATION
@@ -50,9 +48,12 @@ void loadFromFile(std::vector<Vertex>& vertices,
     for (const auto& shape : shapes) {
         for (const auto& index : shape.mesh.indices) {
             Vertex vertex{};
-            vertex.position[0] = attrib.vertices[3 * index.vertex_index + 0];
-            vertex.position[1] = -attrib.vertices[3 * index.vertex_index + 1];
-            vertex.position[2] = attrib.vertices[3 * index.vertex_index + 2];
+            vertex.position[0] =
+                attrib.vertices[3 * index.vertex_index + 0];
+            vertex.position[1] =
+                -attrib.vertices[3 * index.vertex_index + 1];
+            vertex.position[2] =
+                attrib.vertices[3 * index.vertex_index + 2];
             vertices.push_back(vertex);
             indices.push_back(static_cast<uint32_t>(indices.size()));
         }
@@ -97,8 +98,11 @@ struct Context {
         glfwInit();
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-        window =
-            glfwCreateWindow(WIDTH, HEIGHT, "Mighty Engine", nullptr, nullptr);
+        window = glfwCreateWindow(WIDTH,
+            HEIGHT,
+            "Mighty Engine",
+            nullptr,
+            nullptr);
         glfwSetWindowIcon(window, 1, &image);
 
         // Prepase extensions and layers
@@ -137,7 +141,8 @@ struct Context {
         messengerInfo.setMessageType(
             vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation);
         messengerInfo.setPfnUserCallback(&debugUtilsMessengerCallback);
-        messenger = instance->createDebugUtilsMessengerEXTUnique(messengerInfo);
+        messenger =
+            instance->createDebugUtilsMessengerEXTUnique(messengerInfo);
 
         // Create surface
         VkSurfaceKHR _surface;
@@ -148,10 +153,12 @@ struct Context {
         if (res != VK_SUCCESS) {
             throw std::runtime_error("failed to create window surface!");
         }
-        surface = vk::UniqueSurfaceKHR(vk::SurfaceKHR(_surface), {*instance});
+        surface =
+            vk::UniqueSurfaceKHR(vk::SurfaceKHR(_surface), {*instance});
 
         // Find queue family
-        std::vector queueFamilies = physicalDevice.getQueueFamilyProperties();
+        std::vector queueFamilies =
+            physicalDevice.getQueueFamilyProperties();
         for (int i = 0; i < queueFamilies.size(); i++) {
             auto supportCompute =
                 queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute;
@@ -247,13 +254,15 @@ struct Context {
         }
 
         if (requiredExtensionNames.empty()) {
-            std::cout << "All required extensions are supported by the device."
-                      << std::endl;
+            std::cout
+                << "All required extensions are supported by the device."
+                << std::endl;
             return true;
         } else {
-            std::cout << "The following required extensions are not supported "
-                         "by the device:"
-                      << std::endl;
+            std::cout
+                << "The following required extensions are not supported "
+                   "by the device:"
+                << std::endl;
             for (const auto& name : requiredExtensionNames) {
                 std::cout << "\t" << name << std::endl;
             }
@@ -267,7 +276,8 @@ struct Context {
             physicalDevice.getMemoryProperties();
         for (uint32_t i = 0; i != memProperties.memoryTypeCount; ++i) {
             if ((typeFilter & (1 << i))
-                && (memProperties.memoryTypes[i].propertyFlags & properties)
+                && (memProperties.memoryTypes[i].propertyFlags
+                       & properties)
                        == properties) {
                 return i;
             }
@@ -282,8 +292,10 @@ struct Context {
         commandBufferInfo.setCommandBufferCount(1);
 
         vk::UniqueCommandBuffer commandBuffer = std::move(
-            device->allocateCommandBuffersUnique(commandBufferInfo).front());
-        commandBuffer->begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+            device->allocateCommandBuffersUnique(commandBufferInfo)
+                .front());
+        commandBuffer->begin(
+            {vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
         func(*commandBuffer);
         commandBuffer->end();
 
@@ -353,7 +365,8 @@ struct Buffer {
                     | Usage::eShaderDeviceAddress;
             memoryProps = Memory::eDeviceLocal;
         } else if (type == Type::ShaderBindingTable) {
-            usage = Usage::eShaderBindingTableKHR | Usage::eShaderDeviceAddress;
+            usage = Usage::eShaderBindingTableKHR
+                    | Usage::eShaderDeviceAddress;
             memoryProps = Memory::eHostVisible | Memory::eHostCoherent;
         }
 
@@ -363,7 +376,8 @@ struct Buffer {
         vk::MemoryRequirements requirements =
             context.device->getBufferMemoryRequirements(*buffer);
         uint32_t memoryTypeIndex =
-            context.findMemoryType(requirements.memoryTypeBits, memoryProps);
+            context.findMemoryType(requirements.memoryTypeBits,
+                memoryProps);
 
         vk::MemoryAllocateFlagsInfo flagsInfo{
             vk::MemoryAllocateFlagBits::eDeviceAddress};
@@ -378,7 +392,8 @@ struct Buffer {
 
         // Get device address
         vk::BufferDeviceAddressInfoKHR bufferDeviceAI{*buffer};
-        deviceAddress = context.device->getBufferAddressKHR(&bufferDeviceAI);
+        deviceAddress =
+            context.device->getBufferAddressKHR(&bufferDeviceAI);
 
         descBufferInfo.setBuffer(*buffer);
         descBufferInfo.setOffset(0);
@@ -529,7 +544,8 @@ struct Accel {
         accelInfo.setBuffer(*buffer.buffer);
         accelInfo.setSize(size);
         accelInfo.setType(type);
-        accel = context.device->createAccelerationStructureKHRUnique(accelInfo);
+        accel = context.device->createAccelerationStructureKHRUnique(
+            accelInfo);
 
         // Build
         Buffer scratchBuffer{context,
@@ -567,7 +583,8 @@ int run() {
     swapchainInfo.setImageExtent({WIDTH, HEIGHT});
     swapchainInfo.setImageArrayLayers(1);
     swapchainInfo.setImageUsage(vk::ImageUsageFlagBits::eTransferDst);
-    swapchainInfo.setPreTransform(vk::SurfaceTransformFlagBitsKHR::eIdentity);
+    swapchainInfo.setPreTransform(
+        vk::SurfaceTransformFlagBitsKHR::eIdentity);
     swapchainInfo.setPresentMode(vk::PresentModeKHR::eFifo);
     swapchainInfo.setClipped(true);
     swapchainInfo.setQueueFamilyIndices(context.queueFamilyIndex);
@@ -587,7 +604,8 @@ int run() {
     Image outputImage{context,
         {WIDTH, HEIGHT},
         vk::Format::eB8G8R8A8Unorm,
-        vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc
+        vk::ImageUsageFlagBits::eStorage
+            | vk::ImageUsageFlagBits::eTransferSrc
             | vk::ImageUsageFlagBits::eTransferDst};
 
     // Load mesh
@@ -665,8 +683,10 @@ int run() {
         vk::AccelerationStructureTypeKHR::eTopLevel};
 
     // Load shaders
-    const std::vector<char> raygenCode = readFile("./shaders/raygen.rgen.spv");
-    const std::vector<char> missCode = readFile("./shaders/miss.rmiss.spv");
+    const std::vector<char> raygenCode =
+        readFile("./shaders/raygen.rgen.spv");
+    const std::vector<char> missCode =
+        readFile("./shaders/miss.rmiss.spv");
     const std::vector<char> chitCode =
         readFile("./shaders/closesthit.rchit.spv");
 
@@ -706,7 +726,8 @@ int run() {
         VK_SHADER_UNUSED_KHR,
         VK_SHADER_UNUSED_KHR,
         VK_SHADER_UNUSED_KHR};
-    shaderGroups[2] = {vk::RayTracingShaderGroupTypeKHR::eTrianglesHitGroup,
+    shaderGroups[2] = {
+        vk::RayTracingShaderGroupTypeKHR::eTrianglesHitGroup,
         VK_SHADER_UNUSED_KHR,
         2,
         VK_SHADER_UNUSED_KHR,
@@ -726,15 +747,18 @@ int run() {
         {2,
             vk::DescriptorType::eStorageBuffer,
             1,
-            vk::ShaderStageFlagBits::eClosestHitKHR},  // Binding = 2 : Vertices
+            vk::ShaderStageFlagBits::eClosestHitKHR},  // Binding = 2 :
+                                                       // Vertices
         {3,
             vk::DescriptorType::eStorageBuffer,
             1,
-            vk::ShaderStageFlagBits::eClosestHitKHR},  // Binding = 3 : Indices
+            vk::ShaderStageFlagBits::eClosestHitKHR},  // Binding = 3 :
+                                                       // Indices
         {4,
             vk::DescriptorType::eStorageBuffer,
             1,
-            vk::ShaderStageFlagBits::eClosestHitKHR},  // Binding = 4 : Faces
+            vk::ShaderStageFlagBits::eClosestHitKHR},  // Binding = 4 :
+                                                       // Faces
     };
 
     // Create desc set layout
@@ -762,9 +786,10 @@ int run() {
     rtPipelineInfo.setMaxPipelineRayRecursionDepth(4);
     rtPipelineInfo.setLayout(*pipelineLayout);
 
-    auto result = context.device->createRayTracingPipelineKHRUnique(nullptr,
-        nullptr,
-        rtPipelineInfo);
+    auto result =
+        context.device->createRayTracingPipelineKHRUnique(nullptr,
+            nullptr,
+            rtPipelineInfo);
     if (result.result != vk::Result::eSuccess) {
         throw std::runtime_error("failed to create ray tracing pipeline.");
     }
@@ -773,10 +798,12 @@ int run() {
 
     // Get ray tracing properties
     auto properties =
-        context.physicalDevice.getProperties2<vk::PhysicalDeviceProperties2,
-            vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>();
+        context.physicalDevice
+            .getProperties2<vk::PhysicalDeviceProperties2,
+                vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>();
     auto rtProperties =
-        properties.get<vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>();
+        properties
+            .get<vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>();
 
     // Calculate shader binding table (SBT) size
     uint32_t handleSize = rtProperties.shaderGroupHandleSize;
@@ -824,7 +851,8 @@ int run() {
         size};
 
     // Create desc set
-    vk::UniqueDescriptorSet descSet = context.allocateDescSet(*descSetLayout);
+    vk::UniqueDescriptorSet descSet =
+        context.allocateDescSet(*descSetLayout);
     std::vector<vk::WriteDescriptorSet> writes(bindings.size());
     for (int i = 0; i < bindings.size(); i++) {
         writes[i].setDstSet(*descSet);
@@ -859,7 +887,8 @@ int run() {
         commandBuffer.begin(vk::CommandBufferBeginInfo());
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eRayTracingKHR,
             *pipeline);
-        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eRayTracingKHR,
+        commandBuffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eRayTracingKHR,
             *pipelineLayout,
             0,
             *descSet,
@@ -900,7 +929,8 @@ int run() {
         commandBuffer.end();
 
         // Submit
-        context.queue.submit(vk::SubmitInfo().setCommandBuffers(commandBuffer));
+        context.queue.submit(
+            vk::SubmitInfo().setCommandBuffers(commandBuffer));
 
         // Present image
         vk::PresentInfoKHR presentInfo;

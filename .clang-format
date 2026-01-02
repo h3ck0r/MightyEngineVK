@@ -2,7 +2,7 @@ BasedOnStyle: Google
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
-ColumnLimit: 80
+ColumnLimit: 75
 
 # --- Braces and Blocks ---
 BreakBeforeBraces: Attach               # Attach braces to function/control statement

@@ -16,6 +16,8 @@ set(COMPILE_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/compile.bat)
 set(SHADERS_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/shaders")
 set(SHADERS_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/core/shaders")
 
+add_definitions(-DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)
+
 add_custom_target(CompileShaders ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADERS_OUT_DIR}
     COMMAND ${COMPILE_SCRIPT} "${SHADERS_SRC_DIR}" "${SHADERS_OUT_DIR}"
@@ -39,7 +41,7 @@ add_subdirectory(external/glfw)
 add_subdirectory(external/glm)
 add_subdirectory(external/tinyobjloader)
 
-file(GLOB CORE_SOURCES "core/*.cc")
+file(GLOB_RECURSE CORE_SOURCES "core/*.cc")
 
 add_executable(VulkanEngineExecutable main.cc ${CORE_SOURCES})
 target_include_directories(VulkanEngineExecutable PRIVATE
