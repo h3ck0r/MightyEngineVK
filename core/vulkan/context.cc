@@ -1,5 +1,6 @@
 #include "context.h"
 
+#include <functional>
 #include <iostream>
 #include <memory>
 
@@ -36,4 +37,49 @@ void Context::InitVulkan() {
 
     std::cout << "Finished initializing engine.";
 }
+
+void Context::OneTimeSubmit(
+    const std::function<void(vk::CommandBuffer)>& func) const {
+    vk::CommandBufferAllocateInfo command_buffer_info;
+    command_buffer_info.setCommandPool(command_pool->command_pool());
+    command_buffer_info.setCommandBufferCount(1);
+
+    vk::UniqueCommandBuffer command_buffer = std::move(device->device()
+            .allocateCommandBuffersUnique(command_buffer_info)
+            .front());
+    command_buffer->begin(
+        {vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+    func(*command_buffer);
+    command_buffer->end();
+
+    vk::SubmitInfo submitInfo;
+    submitInfo.setCommandBuffers(*command_buffer);
+    queue->queue().submit(submitInfo);
+    queue->queue().waitIdle();
+}
+
+vk::AccessFlags Context::ToAccessFlags(vk::ImageLayout layout) {
+    switch (layout) {
+        case vk::ImageLayout::eTransferSrcOptimal:
+            return vk::AccessFlagBits::eTransferRead;
+        case vk::ImageLayout::eTransferDstOptimal:
+            return vk::AccessFlagBits::eTransferWrite;
+        default:
+            return {};
+    }
+}
+
+uint32_t Context::FindMemoryType(uint32_t type_filter,
+    vk::MemoryPropertyFlags properties) const {
+    vk::PhysicalDeviceMemoryProperties mem_properties =
+        physical_device->physical_device().getMemoryProperties();
+    for (uint32_t i = 0; i != mem_properties.memoryTypeCount; ++i) {
+        if ((type_filter & (1 << i))
+            && (mem_properties.memoryTypes[i].propertyFlags & properties)
+                   == properties) {
+            return i;
+        }
+    }
+    throw std::runtime_error("failed to find suitable memory type");
+};
 }  // namespace engine_init

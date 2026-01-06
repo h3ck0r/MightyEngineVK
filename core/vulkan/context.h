@@ -2,6 +2,8 @@
 #ifndef VK_INIT_CONTEXT_H_
 #define VK_INIT_CONTEXT_H_
 
+#include <functional>
+
 #include "command_pool.h"
 #include "debug_messenger.h"
 #include "descriptor_pool.h"
@@ -16,6 +18,13 @@ struct Context {
     Context(const Context&) = delete;
     Context& operator=(const Context&) = delete;
 
+    void InitVulkan();
+    void OneTimeSubmit(
+        const std::function<void(vk::CommandBuffer)>& func) const;
+    uint32_t FindMemoryType(uint32_t type_filter,
+        vk::MemoryPropertyFlags properties) const;
+    vk::AccessFlags ToAccessFlags(vk::ImageLayout layout);
+
     std::unique_ptr<Instance> instance;
     std::unique_ptr<WindowHandle> window_handle;
     std::unique_ptr<DebugMessenger> debug_messenger;
@@ -23,12 +32,10 @@ struct Context {
     std::unique_ptr<PhysicalDevice> physical_device;
     std::unique_ptr<QueueFamily> queue_family;
     std::unique_ptr<Device> device;
-
     std::unique_ptr<Queue> queue;
     std::unique_ptr<Swapchain> swapchain;
     std::unique_ptr<CommandPool> command_pool;
     std::unique_ptr<DescriptorPool> descriptor_pool;
-    void InitVulkan();
 };
 }  // namespace engine_init
 
