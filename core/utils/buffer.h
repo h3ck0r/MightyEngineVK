@@ -23,9 +23,10 @@ struct Buffer {
     Buffer(Buffer&&) noexcept = default;
     Buffer& operator=(Buffer&&) noexcept = default;
 
-    vk::Buffer buffer() const { return buffer_.get(); }
     vk::DeviceMemory memory() const { return memory_.get(); }
+    vk::Buffer buffer() const { return buffer_.get(); }
     uint64_t device_address() const { return device_address_; }
+    const vk::DescriptorBufferInfo& desc_buffer_info() const { return desc_buffer_info_; }
 
    private:
     void CreateBuffer(const engine_init::Context& context,

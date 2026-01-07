@@ -15,22 +15,19 @@ Accel::Accel(const engine_init::Context& context,
 
     // Create buffer
     vk::AccelerationStructureBuildSizesInfoKHR build_sizes_info =
-        context.device->device().getAccelerationStructureBuildSizesKHR(
+        context.device().getAccelerationStructureBuildSizesKHR(
             vk::AccelerationStructureBuildTypeKHR::eDevice,
             build_geometry_info,
             primitive_count);
     vk::DeviceSize size = build_sizes_info.accelerationStructureSize;
-    buffer_ = std::make_unique<Buffer>(context,
-        Buffer::Type::AccelStorage,
-        size);
+    buffer_ = std::make_unique<Buffer>(context, Buffer::Type::AccelStorage, size);
 
     // Create accel
     vk::AccelerationStructureCreateInfoKHR accel_info;
     accel_info.setBuffer(buffer_->buffer());
     accel_info.setSize(size);
     accel_info.setType(type);
-    accel_ = context.device->device().createAccelerationStructureKHRUnique(
-        accel_info);
+    accel_ = context.device().createAccelerationStructureKHRUnique(accel_info);
 
     // Build
     Buffer scratch_buffer{context,

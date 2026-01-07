@@ -15,7 +15,7 @@ struct PhysicalDevice {
     PhysicalDevice(const PhysicalDevice&) = delete;
     PhysicalDevice& operator=(const PhysicalDevice&) = delete;
     vk::PhysicalDevice physical_device() const { return physical_device_; }
-
+    
    private:
     void PickPhysicalDevice(const vk::Instance& instance);
     vk::PhysicalDevice physical_device_;

@@ -4,6 +4,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include "../vulkan/context.h"
+#include "vulkan/vulkan.hpp"
 
 namespace engine {
 
@@ -19,14 +20,17 @@ struct Image {
 
     static vk::AccessFlags ToAccessFlags(vk::ImageLayout layout);
 
-    void SetImageLayout(vk::CommandBuffer commandBuffer,
+    static void SetImageLayout(vk::CommandBuffer command_buffer,
         vk::Image image,
-        vk::ImageLayout oldLayout,
-        vk::ImageLayout newLayout);
+        vk::ImageLayout old_layout,
+        vk::ImageLayout new_layout);
 
-    void CopyImage(vk::CommandBuffer command_buffer,
+    static void CopyImage(vk::CommandBuffer command_buffer,
         vk::Image src_image,
         vk::Image dst_image);
+    const vk::DescriptorImageInfo& desc_image_info() const { return desc_image_info_; }
+
+    vk::Image image() const { return image_.get(); }
 
    private:
     vk::UniqueImage image_;

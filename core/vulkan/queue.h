@@ -4,13 +4,14 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include "device.h"
+#include "vulkan/queue_family.h"
+
 
 namespace engine_init {
 
 struct Queue {
    public:
-    Queue(const Device& device, const QueueFamily& queue_family);
+    Queue(const vk::Device& device, const QueueFamily& queue_family);
     // No copy
     Queue(const Queue&) = delete;
     Queue& operator=(const Queue&) = delete;

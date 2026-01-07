@@ -17,7 +17,7 @@ void Buffer::CreateBuffer(const engine_init::Context& context,
     Type type,
     vk::DeviceSize size,
     const void* data) {
-    vk::Device device = context.device->device();
+    vk::Device device = context.device();
     vk::BufferUsageFlags usage;
     vk::MemoryPropertyFlags memory_props;
 
@@ -25,32 +25,28 @@ void Buffer::CreateBuffer(const engine_init::Context& context,
     using Memory = vk::MemoryPropertyFlagBits;
 
     if (type == Type::AccelInput) {
-        usage = Usage::eAccelerationStructureBuildInputReadOnlyKHR
-                | Usage::eStorageBuffer | Usage::eShaderDeviceAddress;
+        usage = Usage::eAccelerationStructureBuildInputReadOnlyKHR | Usage::eStorageBuffer
+                | Usage::eShaderDeviceAddress;
         memory_props = Memory::eHostVisible | Memory::eHostCoherent;
     } else if (type == Type::Scratch) {
         usage = Usage::eStorageBuffer | Usage::eShaderDeviceAddress;
         memory_props = Memory::eDeviceLocal;
     } else if (type == Type::AccelStorage) {
-        usage = Usage::eAccelerationStructureStorageKHR
-                | Usage::eShaderDeviceAddress;
+        usage = Usage::eAccelerationStructureStorageKHR | Usage::eShaderDeviceAddress;
         memory_props = Memory::eDeviceLocal;
     } else if (type == Type::ShaderBindingTable) {
-        usage =
-            Usage::eShaderBindingTableKHR | Usage::eShaderDeviceAddress;
+        usage = Usage::eShaderBindingTableKHR | Usage::eShaderDeviceAddress;
         memory_props = Memory::eHostVisible | Memory::eHostCoherent;
     }
 
     buffer_ = device.createBufferUnique({{}, size, usage});
 
     // Allocate memory
-    vk::MemoryRequirements requirements =
-        device.getBufferMemoryRequirements(*buffer_);
+    vk::MemoryRequirements requirements = device.getBufferMemoryRequirements(*buffer_);
     uint32_t memory_type_index =
         context.FindMemoryType(requirements.memoryTypeBits, memory_props);
 
-    vk::MemoryAllocateFlagsInfo flags_info{
-        vk::MemoryAllocateFlagBits::eDeviceAddress};
+    vk::MemoryAllocateFlagsInfo flags_info{vk::MemoryAllocateFlagBits::eDeviceAddress};
 
     vk::MemoryAllocateInfo memory_info;
     memory_info.setAllocationSize(requirements.size);
@@ -62,8 +58,7 @@ void Buffer::CreateBuffer(const engine_init::Context& context,
 
     // Get device address
     vk::BufferDeviceAddressInfoKHR buffer_device_address_info{*buffer_};
-    device_address_ =
-        device.getBufferAddressKHR(&buffer_device_address_info);
+    device_address_ = device.getBufferAddressKHR(&buffer_device_address_info);
 
     desc_buffer_info_.setBuffer(*buffer_);
     desc_buffer_info_.setOffset(0);
