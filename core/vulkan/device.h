@@ -7,12 +7,11 @@
 #include "queue_family.h"
 #include "vulkan/vulkan.hpp"
 
-namespace engine_init {
+namespace engine_lib {
 
 struct Device {
    public:
-    Device(const PhysicalDevice& physical_device,
-        const QueueFamily& queue_family);
+    Device(const vk::PhysicalDevice& physical_device, const QueueFamily& queue_family);
     // No copy
     Device(const Device&) = delete;
     Device& operator=(const Device&) = delete;
@@ -21,11 +20,10 @@ struct Device {
    private:
     void CreateDevice(const vk::PhysicalDevice& physical_deivce,
         const size_t& queue_family_index);
-    bool CheckDeviceExtensionSupport(
-        const vk::PhysicalDevice& physical_deivce,
+    bool CheckDeviceExtensionSupport(const vk::PhysicalDevice& physical_deivce,
         const std::vector<const char*>& required_extensions) const;
     vk::UniqueDevice device_;
 };
-}  // namespace engine_init
+}  // namespace engine_lib
 
 #endif

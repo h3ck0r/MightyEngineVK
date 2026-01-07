@@ -8,7 +8,7 @@
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
-namespace engine_init {
+namespace engine_lib {
 struct InstanceParameters {
     uint32_t api_version;
 };
@@ -32,6 +32,6 @@ struct Instance {
     std::vector<const char*> layers_{"VK_LAYER_KHRONOS_validation"};
     vk::UniqueInstance instance_;
 };
-}  // namespace engine_init
+}  // namespace engine_lib
 
 #endif

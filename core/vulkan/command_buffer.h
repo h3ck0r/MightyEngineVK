@@ -7,7 +7,7 @@
 #include "vulkan/command_pool.h"
 #include "vulkan/vulkan.hpp"
 
-namespace engine_init {
+namespace engine_lib {
 
 struct CommandBuffer {
    public:
@@ -27,6 +27,6 @@ struct CommandBuffer {
         uint32_t swapchain_images_count);
     std::vector<vk::UniqueCommandBuffer> command_buffers_;
 };
-}  // namespace engine_init
+}  // namespace engine_lib
 
 #endif

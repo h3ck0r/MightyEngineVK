@@ -6,7 +6,7 @@
 
 #include "device.h"
 
-namespace engine_init {
+namespace engine_lib {
 
 struct DescriptorPool {
    public:
@@ -14,9 +14,7 @@ struct DescriptorPool {
     // No copy
     DescriptorPool(const DescriptorPool&) = delete;
     DescriptorPool& operator=(const DescriptorPool&) = delete;
-    vk::DescriptorPool descriptor_pool() const {
-        return descriptor_pool_.get();
-    }
+    vk::DescriptorPool descriptor_pool() const { return descriptor_pool_.get(); }
 
    private:
     void CreateDescriptorPool(const vk::Device& device);
@@ -27,6 +25,6 @@ struct DescriptorPool {
         {vk::DescriptorType::eStorageBuffer, 3},
     };
 };
-}  // namespace engine_init
+}  // namespace engine_lib
 
 #endif

@@ -8,7 +8,7 @@
 #include "surface.h"
 #include "vulkan/vulkan.hpp"
 
-namespace engine_init {
+namespace engine_lib {
 
 struct Swapchain {
    public:
@@ -31,6 +31,6 @@ struct Swapchain {
     vk::UniqueSwapchainKHR swapchain_;
     std::vector<vk::Image> swapchain_images_;
 };
-}  // namespace engine_init
+}  // namespace engine_lib
 
 #endif

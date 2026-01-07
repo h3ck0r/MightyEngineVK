@@ -5,12 +5,11 @@
 
 #include "iostream"
 
-namespace engine_init {
+namespace engine_lib {
 
 Instance::Instance() {
     auto vk_get_instance_proc_addr =
-        dl_.getProcAddress<PFN_vkGetInstanceProcAddr>(
-            "vkGetInstanceProcAddr");
+        dl_.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vk_get_instance_proc_addr);
     if (!CheckVersion()) {
         // TODO: ADD EXCEPTION
@@ -39,8 +38,8 @@ bool Instance::CheckVersion() {
     uint32_t minor = VK_API_VERSION_MINOR(api_version);
     uint32_t patch = VK_API_VERSION_PATCH(api_version);
 
-    std::cout << "Supported Vulkan Version: " << major << "." << minor
-              << "." << patch << "\n";
+    std::cout << "Supported Vulkan Version: " << major << "." << minor << "." << patch
+              << "\n";
 
     instance_parameters_.api_version = api_version;
     return true;
@@ -51,8 +50,7 @@ void Instance::CreateVulkanInstance() {
     uint32_t glfw_extension_count = 0;
     const char** glfwExtensions =
         glfwGetRequiredInstanceExtensions(&glfw_extension_count);
-    std::vector extensions(glfwExtensions,
-        glfwExtensions + glfw_extension_count);
+    std::vector extensions(glfwExtensions, glfwExtensions + glfw_extension_count);
     extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     extensions.push_back(VK_EXT_LAYER_SETTINGS_EXTENSION_NAME);
 
@@ -94,11 +92,10 @@ bool Instance::CheckLayersSupport() {
         }
 
         if (!layer_found) {
-            std::cerr << "Requested layer not found: " << layer_name
-                      << "\n";
+            std::cerr << "Requested layer not found: " << layer_name << "\n";
             return false;
         }
     }
     return true;
 }
-}  // namespace engine_init
+}  // namespace engine_lib

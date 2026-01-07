@@ -4,13 +4,13 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include "../vulkan/context.h"
 #include "buffer.h"
+#include "renderer/context.h"
 
 namespace engine {
 struct Accel {
    public:
-    Accel(const engine_init::Context& context,
+    Accel(const engine::Context& context,
         vk::AccelerationStructureGeometryKHR geometry,
         uint32_t primitive_count,
         vk::AccelerationStructureTypeKHR type);

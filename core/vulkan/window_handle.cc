@@ -7,7 +7,7 @@
 
 #include "stb_image.h"
 
-namespace engine_init {
+namespace engine_lib {
 
 WindowHandle::WindowHandle() {
     CreateWindow();
@@ -15,8 +15,7 @@ WindowHandle::WindowHandle() {
 
 void WindowHandle::CreateWindow() {
     int width, height, channels;
-    unsigned char* pixels =
-        stbi_load("assets/ICON.png", &width, &height, &channels, 4);
+    unsigned char* pixels = stbi_load("assets/ICON.png", &width, &height, &channels, 4);
 
     GLFWimage image;
     image.height = height;
@@ -28,9 +27,8 @@ void WindowHandle::CreateWindow() {
     }
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-    window_ =
-        glfwCreateWindow(WIDTH, HEIGHT, "Mighty Engine", nullptr, nullptr);
+    window_ = glfwCreateWindow(WIDTH, HEIGHT, "Mighty Engine", nullptr, nullptr);
     glfwSetWindowIcon(window_, 1, &image);
 }
 
-}  // namespace engine_init
+}  // namespace engine_lib

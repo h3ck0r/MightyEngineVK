@@ -4,13 +4,13 @@
 
 #include <iostream>
 
-namespace engine_init {
+namespace engine_lib {
 
-static VKAPI_ATTR vk::Bool32 VKAPI_CALL DebugUtilsMessengerCallback(
-    vk::DebugUtilsMessageSeverityFlagBitsEXT message_severity,
-    vk::DebugUtilsMessageTypeFlagsEXT message_types,
-    vk::DebugUtilsMessengerCallbackDataEXT const* callback_data,
-    void* pUserData) {
+static VKAPI_ATTR vk::Bool32 VKAPI_CALL
+    DebugUtilsMessengerCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT message_severity,
+        vk::DebugUtilsMessageTypeFlagsEXT message_types,
+        vk::DebugUtilsMessengerCallbackDataEXT const* callback_data,
+        void* pUserData) {
     std::cerr << callback_data->pMessage << std::endl;
     return VK_FALSE;
 };
@@ -21,12 +21,9 @@ DebugMessenger::DebugMessenger(const Instance& instance) {
 
 void DebugMessenger::CreateDebugMessenger(const vk::Instance& instance) {
     vk::DebugUtilsMessengerCreateInfoEXT messenger_info;
-    messenger_info.setMessageSeverity(
-        vk::DebugUtilsMessageSeverityFlagBitsEXT::eError);
-    messenger_info.setMessageType(
-        vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation);
+    messenger_info.setMessageSeverity(vk::DebugUtilsMessageSeverityFlagBitsEXT::eError);
+    messenger_info.setMessageType(vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation);
     messenger_info.setPfnUserCallback(&DebugUtilsMessengerCallback);
-    messenger_ =
-        instance.createDebugUtilsMessengerEXTUnique(messenger_info);
+    messenger_ = instance.createDebugUtilsMessengerEXTUnique(messenger_info);
 }
-}  // namespace engine_init
+}  // namespace engine_lib

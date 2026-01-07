@@ -6,8 +6,7 @@
 
 #include "vulkan/queue_family.h"
 
-
-namespace engine_init {
+namespace engine_lib {
 
 struct Queue {
    public:
@@ -21,6 +20,6 @@ struct Queue {
     void PickQueue(const vk::Device& device, size_t queue_family_index);
     vk::Queue queue_;
 };
-}  // namespace engine_init
+}  // namespace engine_lib
 
 #endif

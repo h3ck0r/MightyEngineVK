@@ -3,22 +3,14 @@
 
 #include <memory>
 
-#include "../vulkan/command_buffer.h"
+#include "context.h"
+#include "scene.h"
 #include "utils/accel.h"
 #include "utils/buffer.h"
 #include "utils/image.h"
-#include "vulkan/context.h"
+#include "vulkan/command_buffer.h"
 
 namespace engine {
-
-struct Vertex {
-    float position[3];
-};
-
-struct Face {
-    float diffuse[3];
-    float emission[3];
-};
 
 class Renderer {
    public:
@@ -30,12 +22,13 @@ class Renderer {
     void MainLoop();
 
    private:
-    engine_init::Context context_;
-    std::unique_ptr<engine_init::CommandBuffer> command_buffer_;
+    void CreateRendererPipeline();
+    engine::Context context_;
+    engine::Scene scene_;
+
+    std::unique_ptr<engine_lib::CommandBuffer> command_buffer_;
     std::unique_ptr<Image> output_image_;
-    std::unique_ptr<Buffer> vertex_buffer_;
-    std::unique_ptr<Buffer> index_buffer_;
-    std::unique_ptr<Buffer> face_buffer_;
+
     std::unique_ptr<Accel> bottom_accel_;
     std::unique_ptr<Accel> top_accel_;
     vk::UniquePipeline pipeline_;

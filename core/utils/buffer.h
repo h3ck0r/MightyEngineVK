@@ -4,9 +4,6 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include "../vulkan/context.h"
-#include "vulkan/vulkan.hpp"
-
 namespace engine {
 struct Buffer {
    public:
@@ -16,7 +13,8 @@ struct Buffer {
         AccelStorage,
         ShaderBindingTable,
     };
-    Buffer(const engine_init::Context& context,
+    Buffer(const vk::Device& device,
+        const vk::PhysicalDevice& physical_device,
         Type type,
         vk::DeviceSize size,
         const void* data = nullptr);
@@ -29,7 +27,8 @@ struct Buffer {
     const vk::DescriptorBufferInfo& desc_buffer_info() const { return desc_buffer_info_; }
 
    private:
-    void CreateBuffer(const engine_init::Context& context,
+    void CreateBuffer(const vk::Device& device,
+        const vk::PhysicalDevice& physical_device,
         Type type,
         vk::DeviceSize size,
         const void* data = nullptr);

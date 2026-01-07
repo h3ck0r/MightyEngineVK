@@ -6,7 +6,7 @@
 
 #include "instance.h"
 
-namespace engine_init {
+namespace engine_lib {
 
 struct DebugMessenger {
     DebugMessenger(const Instance& instance);
@@ -18,6 +18,6 @@ struct DebugMessenger {
     void CreateDebugMessenger(const vk::Instance& instance);
     vk::UniqueDebugUtilsMessengerEXT messenger_;
 };
-}  // namespace engine_init
+}  // namespace engine_lib
 
 #endif

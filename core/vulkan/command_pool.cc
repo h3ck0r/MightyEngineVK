@@ -7,7 +7,7 @@
 #include "queue_family.h"
 #include "vulkan/vulkan.hpp"
 
-namespace engine_init {
+namespace engine_lib {
 
 CommandPool::CommandPool(const vk::Device& device, const QueueFamily& queue_family) {
     CreateCommandPool(device, queue_family.queue_family_index());
@@ -21,4 +21,4 @@ void CommandPool::CreateCommandPool(const vk::Device& device,
     command_pool_ = device.createCommandPoolUnique(command_pool_info);
 }
 
-}  // namespace engine_init
+}  // namespace engine_lib

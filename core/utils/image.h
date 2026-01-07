@@ -3,14 +3,14 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include "../vulkan/context.h"
+#include "renderer/context.h"
 #include "vulkan/vulkan.hpp"
 
 namespace engine {
 
 struct Image {
    public:
-    Image(const engine_init::Context& context,
+    Image(const engine::Context& context,
         vk::Extent2D extent,
         vk::Format format,
         vk::ImageUsageFlags usage);

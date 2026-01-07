@@ -5,7 +5,7 @@
 #include "vulkan/queue_family.h"
 #include "vulkan/vulkan.hpp"
 
-namespace engine_init {
+namespace engine_lib {
 
 struct CommandPool {
    public:
@@ -19,6 +19,6 @@ struct CommandPool {
     void CreateCommandPool(const vk::Device& device, uint32_t queue_family_index);
     vk::UniqueCommandPool command_pool_;
 };
-}  // namespace engine_init
+}  // namespace engine_lib
 
 #endif

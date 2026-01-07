@@ -3,7 +3,7 @@
 #include <memory>
 
 namespace engine {
-Accel::Accel(const engine_init::Context& context,
+Accel::Accel(const engine::Context& context,
     vk::AccelerationStructureGeometryKHR geometry,
     uint32_t primitive_count,
     vk::AccelerationStructureTypeKHR type) {
@@ -20,7 +20,10 @@ Accel::Accel(const engine_init::Context& context,
             build_geometry_info,
             primitive_count);
     vk::DeviceSize size = build_sizes_info.accelerationStructureSize;
-    buffer_ = std::make_unique<Buffer>(context, Buffer::Type::AccelStorage, size);
+    buffer_ = std::make_unique<Buffer>(context.device(),
+        context.physical_device(),
+        Buffer::Type::AccelStorage,
+        size);
 
     // Create accel
     vk::AccelerationStructureCreateInfoKHR accel_info;
@@ -30,7 +33,8 @@ Accel::Accel(const engine_init::Context& context,
     accel_ = context.device().createAccelerationStructureKHRUnique(accel_info);
 
     // Build
-    Buffer scratch_buffer{context,
+    Buffer scratch_buffer{context.device(),
+        context.physical_device(),
         Buffer::Type::Scratch,
         build_sizes_info.buildScratchSize};
     build_geometry_info.setScratchData(scratch_buffer.device_address());

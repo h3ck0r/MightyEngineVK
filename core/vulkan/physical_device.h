@@ -6,7 +6,7 @@
 
 #include "instance.h"
 
-namespace engine_init {
+namespace engine_lib {
 
 struct PhysicalDevice {
    public:
@@ -15,11 +15,11 @@ struct PhysicalDevice {
     PhysicalDevice(const PhysicalDevice&) = delete;
     PhysicalDevice& operator=(const PhysicalDevice&) = delete;
     vk::PhysicalDevice physical_device() const { return physical_device_; }
-    
+
    private:
     void PickPhysicalDevice(const vk::Instance& instance);
     vk::PhysicalDevice physical_device_;
 };
-}  // namespace engine_init
+}  // namespace engine_lib
 
 #endif

@@ -5,22 +5,19 @@
 
 #include "window_handle.h"
 
-namespace engine_init {
+namespace engine_lib {
 
-Surface::Surface(const Instance& instance,
-    const WindowHandle& window_handle) {
+Surface::Surface(const Instance& instance, const WindowHandle& window_handle) {
     CreateSurface(instance.instance(), window_handle.window());
 }
 
-void Surface::CreateSurface(const vk::Instance& instance,
-    GLFWwindow* window) {
+void Surface::CreateSurface(const vk::Instance& instance, GLFWwindow* window) {
     VkSurfaceKHR _surface;
-    VkResult res =
-        glfwCreateWindowSurface(instance, window, nullptr, &_surface);
+    VkResult res = glfwCreateWindowSurface(instance, window, nullptr, &_surface);
     if (res != VK_SUCCESS) {
         throw std::runtime_error("failed to create window surface!");
     }
     surface_ = vk::UniqueSurfaceKHR(vk::SurfaceKHR(_surface), {instance});
 }
 
-}  // namespace engine_init
+}  // namespace engine_lib

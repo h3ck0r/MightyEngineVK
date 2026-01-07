@@ -9,11 +9,13 @@
 #include "descriptor_pool.h"
 #include "queue.h"
 #include "swapchain.h"
+#include "vulkan/physical_device.h"
 #include "vulkan/vulkan.hpp"
 
-namespace engine_init {
+namespace engine_lib {
 
 struct Context {
+   public:
     Context();
     // No copy
     Context(const Context&) = delete;
@@ -21,8 +23,7 @@ struct Context {
 
     void InitVulkan();
     void OneTimeSubmit(const std::function<void(vk::CommandBuffer)>& func) const;
-    uint32_t FindMemoryType(uint32_t type_filter,
-        vk::MemoryPropertyFlags properties) const;
+
     vk::UniqueDescriptorSet AllocateDescSet(vk::DescriptorSetLayout desc_set_layout,
         const vk::DescriptorPool desc_pool,
         vk::Device device);
@@ -31,7 +32,9 @@ struct Context {
     Instance& instance_handle() const { return *instance_.get(); }
     DebugMessenger& debug_messenger_handle() const { return *debug_messenger_.get(); }
     Surface& surface_handle() const { return *surface_.get(); }
-    PhysicalDevice& physical_device_handle() const { return *physical_device_.get(); }
+    vk::PhysicalDevice physical_device() const {
+        return physical_device_.get()->physical_device();
+    }
     QueueFamily& queue_family_handle() const { return *queue_family_.get(); }
     vk::Device device() const { return device_.get()->device(); }
     vk::Queue queue() const { return queue_.get()->queue(); }
@@ -39,6 +42,7 @@ struct Context {
     CommandPool& command_pool_handle() const { return *command_pool_.get(); }
     DescriptorPool& descriptor_pool_handle() const { return *descriptor_pool_.get(); }
 
+   private:
     // Keep the order of destruction
     std::unique_ptr<WindowHandle> window_handle_;
     std::unique_ptr<Instance> instance_;
@@ -52,6 +56,6 @@ struct Context {
     std::unique_ptr<CommandPool> command_pool_;
     std::unique_ptr<DescriptorPool> descriptor_pool_;
 };
-}  // namespace engine_init
+}  // namespace engine_lib
 
 #endif

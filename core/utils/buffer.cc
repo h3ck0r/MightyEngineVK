@@ -2,22 +2,23 @@
 
 #include <vulkan/vulkan_core.h>
 
-#include "vulkan/context.h"
+#include "utils/object_utils.h"
 
 namespace engine {
 
-Buffer::Buffer(const engine_init::Context& context,
+Buffer::Buffer(const vk::Device& device,
+    const vk::PhysicalDevice& physical_device,
     Type type,
     vk::DeviceSize size,
     const void* data) {
-    CreateBuffer(context, type, size, data);
+    CreateBuffer(device, physical_device, type, size, data);
 }
 
-void Buffer::CreateBuffer(const engine_init::Context& context,
+void Buffer::CreateBuffer(const vk::Device& device,
+    const vk::PhysicalDevice& physical_device,
     Type type,
     vk::DeviceSize size,
     const void* data) {
-    vk::Device device = context.device();
     vk::BufferUsageFlags usage;
     vk::MemoryPropertyFlags memory_props;
 
@@ -43,8 +44,9 @@ void Buffer::CreateBuffer(const engine_init::Context& context,
 
     // Allocate memory
     vk::MemoryRequirements requirements = device.getBufferMemoryRequirements(*buffer_);
-    uint32_t memory_type_index =
-        context.FindMemoryType(requirements.memoryTypeBits, memory_props);
+    uint32_t memory_type_index = FindMemoryType(requirements.memoryTypeBits,
+        memory_props,
+        physical_device.getMemoryProperties());
 
     vk::MemoryAllocateFlagsInfo flags_info{vk::MemoryAllocateFlagBits::eDeviceAddress};
 

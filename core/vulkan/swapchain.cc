@@ -7,7 +7,7 @@
 #include "queue_family.h"
 #include "vulkan/vulkan.hpp"
 
-namespace engine_init {
+namespace engine_lib {
 
 Swapchain::Swapchain(const vk::Device& device,
     const Surface& surface,
@@ -35,4 +35,4 @@ void Swapchain::CreateSwapchain(const vk::Device& device,
     swapchain_images_ = device.getSwapchainImagesKHR(*swapchain_);
 }
 
-}  // namespace engine_init
+}  // namespace engine_lib

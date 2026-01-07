@@ -8,7 +8,7 @@
 #include "vulkan/vulkan.hpp"
 #include "window_handle.h"
 
-namespace engine_init {
+namespace engine_lib {
 
 struct Surface {
    public:
@@ -22,6 +22,6 @@ struct Surface {
     void CreateSurface(const vk::Instance& instance, GLFWwindow* window);
     vk::UniqueSurfaceKHR surface_;
 };
-}  // namespace engine_init
+}  // namespace engine_lib
 
 #endif

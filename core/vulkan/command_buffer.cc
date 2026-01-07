@@ -6,7 +6,7 @@
 
 #include "vulkan/vulkan.hpp"
 
-namespace engine_init {
+namespace engine_lib {
 
 CommandBuffer::CommandBuffer(const vk::Device& device,
     const CommandPool& command_pool,
@@ -24,4 +24,4 @@ void CommandBuffer::CreateCommandBuffer(const vk::Device& device,
     command_buffers_ = device.allocateCommandBuffersUnique(command_buffer_info);
 }
 
-}  // namespace engine_init
+}  // namespace engine_lib

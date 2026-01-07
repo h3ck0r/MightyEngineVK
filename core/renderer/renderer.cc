@@ -3,14 +3,14 @@
 #include <iostream>
 #include <memory>
 
-#include "../utils/image.h"
-#include "../utils/object_utils.h"
 #include "utils/accel.h"
 #include "utils/buffer.h"
+#include "utils/image.h"
+#include "utils/object_utils.h"
 
 namespace engine {
-Renderer::Renderer() {
-    command_buffer_ = std::make_unique<engine_init::CommandBuffer>(context_.device(),
+Renderer::Renderer() : scene_(context_) {
+    command_buffer_ = std::make_unique<engine_lib::CommandBuffer>(context_.device(),
         context_.command_pool_handle(),
         context_.swapchain_handle().swapchain_images().size());
 
@@ -20,40 +20,21 @@ Renderer::Renderer() {
         vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc
             | vk::ImageUsageFlagBits::eTransferDst);
 
-    // Load mesh
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-    std::vector<Face> faces;
-    LoadFromFile(vertices, indices, faces);
-
-    vertex_buffer_ = std::make_unique<Buffer>(context_,
-        Buffer::Type::AccelInput,
-        sizeof(Vertex) * vertices.size(),
-        vertices.data());
-    index_buffer_ = std::make_unique<Buffer>(context_,
-        Buffer::Type::AccelInput,
-        sizeof(uint32_t) * indices.size(),
-        indices.data());
-    face_buffer_ = std::make_unique<Buffer>(context_,
-        Buffer::Type::AccelInput,
-        sizeof(Face) * faces.size(),
-        faces.data());
-
     // Create bottom level accel struct
     vk::AccelerationStructureGeometryTrianglesDataKHR triangle_data_;
     triangle_data_.setVertexFormat(vk::Format::eR32G32B32Sfloat);
-    triangle_data_.setVertexData(vertex_buffer_->device_address());
+    triangle_data_.setVertexData(scene_.vertex_buffer().device_address());
     triangle_data_.setVertexStride(sizeof(Vertex));
-    triangle_data_.setMaxVertex(static_cast<uint32_t>(vertices.size()));
+    triangle_data_.setMaxVertex(static_cast<uint32_t>(scene_.vertices().size()));
     triangle_data_.setIndexType(vk::IndexType::eUint32);
-    triangle_data_.setIndexData(index_buffer_->device_address());
+    triangle_data_.setIndexData(scene_.index_buffer().device_address());
 
     vk::AccelerationStructureGeometryKHR triangle_geometry_;
     triangle_geometry_.setGeometryType(vk::GeometryTypeKHR::eTriangles);
     triangle_geometry_.setGeometry({triangle_data_});
     triangle_geometry_.setFlags(vk::GeometryFlagBitsKHR::eOpaque);
 
-    uint32_t primitive_count_ = static_cast<uint32_t>(indices.size() / 3);
+    uint32_t primitive_count_ = static_cast<uint32_t>(scene_.indices().size() / 3);
 
     bottom_accel_ = std::make_unique<Accel>(context_,
         triangle_geometry_,
@@ -74,7 +55,8 @@ Renderer::Renderer() {
         bottom_accel_->buffer().device_address());
     accel_instance.setFlags(vk::GeometryInstanceFlagBitsKHR::eTriangleFacingCullDisable);
 
-    Buffer instances_buffer{context_,
+    Buffer instances_buffer{context_.device(),
+        context_.physical_device(),
         Buffer::Type::AccelInput,
         sizeof(vk::AccelerationStructureInstanceKHR),
         &accel_instance};
@@ -200,8 +182,7 @@ Renderer::Renderer() {
     pipeline_ = std::move(result.value);
 
     // Get ray tracing properties
-    auto properties = context_.physical_device_handle()
-                          .physical_device()
+    auto properties = context_.physical_device()
                           .getProperties2<vk::PhysicalDeviceProperties2,
                               vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>();
     auto rt_properties =
@@ -225,15 +206,18 @@ Renderer::Renderer() {
     }
 
     // Create SBT
-    raygen_SBT_ = std::make_unique<Buffer>(context_,
+    raygen_SBT_ = std::make_unique<Buffer>(context_.device(),
+        context_.physical_device(),
         Buffer::Type::ShaderBindingTable,
         handle_size,
         handle_storage.data() + 0 * handle_size_aligned);
-    miss_SBT_ = std::make_unique<Buffer>(context_,
+    miss_SBT_ = std::make_unique<Buffer>(context_.device(),
+        context_.physical_device(),
         Buffer::Type::ShaderBindingTable,
         handle_size,
         handle_storage.data() + 1 * handle_size_aligned);
-    hit_SBT_ = std::make_unique<Buffer>(context_,
+    hit_SBT_ = std::make_unique<Buffer>(context_.device(),
+        context_.physical_device(),
         Buffer::Type::ShaderBindingTable,
         handle_size,
         handle_storage.data() + 2 * handle_size_aligned);
@@ -261,13 +245,15 @@ Renderer::Renderer() {
     }
     writes[0].setPNext(&top_accel_->desc_accel_info());
     writes[1].setImageInfo(output_image_->desc_image_info());
-    writes[2].setBufferInfo(vertex_buffer_->desc_buffer_info());
-    writes[3].setBufferInfo(index_buffer_->desc_buffer_info());
-    writes[4].setBufferInfo(face_buffer_->desc_buffer_info());
+    writes[2].setBufferInfo(scene_.vertex_buffer().desc_buffer_info());
+    writes[3].setBufferInfo(scene_.index_buffer().desc_buffer_info());
+    writes[4].setBufferInfo(scene_.face_buffer().desc_buffer_info());
     context_.device().updateDescriptorSets(writes, nullptr);
 
     std::cout << "Finished initializing renderer.\n";
 }
+
+void Renderer::CreateRendererPipeline() {}
 
 void Renderer::MainLoop() {
     std::cout << "Started engine main loop.\n";

@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan_core.h>
 
-namespace engine_init {
+namespace engine_lib {
 
 PhysicalDevice::PhysicalDevice(const Instance& instance) {
     PickPhysicalDevice(instance.instance());
@@ -13,4 +13,4 @@ void PhysicalDevice::PickPhysicalDevice(const vk::Instance& instance) {
     physical_device_ = instance.enumeratePhysicalDevices().front();
 }
 
-}  // namespace engine_init
+}  // namespace engine_lib

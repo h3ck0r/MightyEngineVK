@@ -10,7 +10,7 @@
 #define WIDTH  1920
 #define HEIGHT 1080
 
-namespace engine_init {
+namespace engine_lib {
 
 struct WindowHandle {
    public:
@@ -24,6 +24,6 @@ struct WindowHandle {
     void CreateWindow();
     GLFWwindow* window_;
 };
-}  // namespace engine_init
+}  // namespace engine_lib
 
 #endif

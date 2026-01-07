@@ -5,15 +5,14 @@
 #include <cstddef>
 #include <vulkan/vulkan.hpp>
 
-#include "physical_device.h"
 #include "surface.h"
+#include "vulkan/vulkan.hpp"
 
-namespace engine_init {
+namespace engine_lib {
 
 struct QueueFamily {
    public:
-    QueueFamily(const PhysicalDevice& physical_device,
-        const Surface& surface);
+    QueueFamily(const vk::PhysicalDevice& physical_device, const Surface& surface);
     // No copy
     QueueFamily(const QueueFamily&) = delete;
     QueueFamily& operator=(const QueueFamily&) = delete;
@@ -24,6 +23,6 @@ struct QueueFamily {
         const vk::SurfaceKHR& surface);
     uint32_t queue_family_index_;
 };
-}  // namespace engine_init
+}  // namespace engine_lib
 
 #endif

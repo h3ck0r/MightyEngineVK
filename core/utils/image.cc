@@ -2,9 +2,11 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include "utils/object_utils.h"
+
 namespace engine {
 
-Image::Image(const engine_init::Context& context,
+Image::Image(const engine::Context& context,
     vk::Extent2D extent,
     vk::Format format,
     vk::ImageUsageFlags usage) {
@@ -21,8 +23,9 @@ Image::Image(const engine_init::Context& context,
     // Allocate memory
     vk::MemoryRequirements requirements =
         context.device().getImageMemoryRequirements(*image_);
-    uint32_t memory_type_index = context.FindMemoryType(requirements.memoryTypeBits,
-        vk::MemoryPropertyFlagBits::eDeviceLocal);
+    uint32_t memory_type_index = FindMemoryType(requirements.memoryTypeBits,
+        vk::MemoryPropertyFlagBits::eDeviceLocal,
+        context.physical_device().getMemoryProperties());
     vk::MemoryAllocateInfo memory_info;
     memory_info.setAllocationSize(requirements.size);
     memory_info.setMemoryTypeIndex(memory_type_index);
