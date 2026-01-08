@@ -29,7 +29,6 @@ class Renderer {
     std::unique_ptr<engine_lib::CommandBuffer> command_buffer_;
     std::unique_ptr<Image> output_image_;
 
-    std::unique_ptr<Accel> bottom_accel_;
     std::unique_ptr<Accel> top_accel_;
     vk::UniquePipeline pipeline_;
     vk::UniquePipelineLayout pipeline_layout_;

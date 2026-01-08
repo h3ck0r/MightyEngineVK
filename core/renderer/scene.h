@@ -1,4 +1,5 @@
 #include "context.h"
+#include "utils/accel.h"
 #include "utils/buffer.h"
 #include "utils/primitives.h"
 
@@ -18,13 +19,16 @@ class Scene {
     const std::vector<Vertex>& vertices() const { return vertices_; }
     const std::vector<uint32_t>& indices() const { return indices_; }
     const std::vector<Face>& faces() const { return faces_; }
+    const Accel& bottom_accel() const { return *bottom_accel_.get(); }
 
    private:
     void LoadMesh();
+    void CreateBottomLevelAccel();
     const engine::Context& context_;
     std::unique_ptr<Buffer> vertex_buffer_;
     std::unique_ptr<Buffer> index_buffer_;
     std::unique_ptr<Buffer> face_buffer_;
+    std::unique_ptr<Accel> bottom_accel_;
 
     std::vector<Vertex> vertices_;
     std::vector<uint32_t> indices_;

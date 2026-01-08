@@ -20,27 +20,6 @@ Renderer::Renderer() : scene_(context_) {
         vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc
             | vk::ImageUsageFlagBits::eTransferDst);
 
-    // Create bottom level accel struct
-    vk::AccelerationStructureGeometryTrianglesDataKHR triangle_data_;
-    triangle_data_.setVertexFormat(vk::Format::eR32G32B32Sfloat);
-    triangle_data_.setVertexData(scene_.vertex_buffer().device_address());
-    triangle_data_.setVertexStride(sizeof(Vertex));
-    triangle_data_.setMaxVertex(static_cast<uint32_t>(scene_.vertices().size()));
-    triangle_data_.setIndexType(vk::IndexType::eUint32);
-    triangle_data_.setIndexData(scene_.index_buffer().device_address());
-
-    vk::AccelerationStructureGeometryKHR triangle_geometry_;
-    triangle_geometry_.setGeometryType(vk::GeometryTypeKHR::eTriangles);
-    triangle_geometry_.setGeometry({triangle_data_});
-    triangle_geometry_.setFlags(vk::GeometryFlagBitsKHR::eOpaque);
-
-    uint32_t primitive_count_ = static_cast<uint32_t>(scene_.indices().size() / 3);
-
-    bottom_accel_ = std::make_unique<Accel>(context_,
-        triangle_geometry_,
-        primitive_count_,
-        vk::AccelerationStructureTypeKHR::eBottomLevel);
-
     // Create top level accel struct
     vk::TransformMatrixKHR transform_matrix = std::array{
         std::array{1.0f, 0.0f, 0.0f, 0.0f},
@@ -52,7 +31,7 @@ Renderer::Renderer() : scene_(context_) {
     accel_instance.setTransform(transform_matrix);
     accel_instance.setMask(0xFF);
     accel_instance.setAccelerationStructureReference(
-        bottom_accel_->buffer().device_address());
+        scene_.bottom_accel().buffer().device_address());
     accel_instance.setFlags(vk::GeometryInstanceFlagBitsKHR::eTriangleFacingCullDisable);
 
     Buffer instances_buffer{context_.device(),
@@ -262,6 +241,8 @@ void Renderer::MainLoop() {
     int frame = 0;
     vk::UniqueSemaphore image_acquired_semaphore =
         context_.device().createSemaphoreUnique(vk::SemaphoreCreateInfo());
+    vk::UniqueSemaphore render_finished_semaphore =
+        context_.device().createSemaphoreUnique({});
     while (!glfwWindowShouldClose(context_.window_handle().window())) {
         glfwPollEvents();
 
@@ -318,13 +299,21 @@ void Renderer::MainLoop() {
         command_buffer.end();
 
         // Submit
-        context_.queue().submit(vk::SubmitInfo().setCommandBuffers(command_buffer));
+        vk::PipelineStageFlags waitStages[] = {
+            vk::PipelineStageFlagBits::eColorAttachmentOutput};
+        vk::SubmitInfo submitInfo;
+        submitInfo.setWaitSemaphores(*image_acquired_semaphore);
+        submitInfo.setPWaitDstStageMask(waitStages);
+        submitInfo.setCommandBuffers(command_buffer);
+        submitInfo.setSignalSemaphores(*render_finished_semaphore);
+
+        context_.queue().submit(submitInfo);
 
         // Present image
         vk::PresentInfoKHR presentInfo;
         presentInfo.setSwapchains(context_.swapchain_handle().swapchain());
         presentInfo.setImageIndices(image_index);
-        presentInfo.setWaitSemaphores(*image_acquired_semaphore);
+        presentInfo.setWaitSemaphores(*render_finished_semaphore);
         auto result = context_.queue().presentKHR(presentInfo);
         if (result != vk::Result::eSuccess) {
             throw std::runtime_error("failed to present.");
